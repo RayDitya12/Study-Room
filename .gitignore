@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+*.local
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+Thumbs.db
+
+*.log
+npm-debug.log*
+
+.vercel

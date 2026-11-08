@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: studyroom-server
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: server/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: STORE
+        value: prisma
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: TRUST_PROXY
+        value: '1'
+      - key: PRESENCE_GRACE_MS
+        value: '15000'
+      - key: MAX_MEMBERS
+        value: '30'
+      - key: ROOM_TTL_DAYS
+        value: '7'

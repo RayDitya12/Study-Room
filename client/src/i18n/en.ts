@@ -1,0 +1,145 @@
+export const en = {
+  app: {
+    title: 'StudyRoom',
+    tagline: 'Focus together, in real time.',
+  },
+  common: {
+    back: 'Back',
+    close: 'Close',
+  },
+  home: {
+    createTitle: 'Create a room',
+    createDescription: 'Get a shareable code and link.',
+    joinTitle: 'Join a room',
+    joinDescription: 'Enter the 6-character room code.',
+    roomName: 'Room name',
+    roomNamePlaceholder: 'Morning focus',
+    password: 'Password (optional)',
+    passwordPlaceholder: 'At least 4 characters',
+    nickname: 'Your nickname',
+    nicknamePlaceholder: 'e.g. Anna',
+    create: 'Create room',
+    join: 'Join',
+    code: 'Room code',
+    invalidCode: 'Enter the 6-character code.',
+    invalidName: 'Enter a room name.',
+    invalidNickname: 'Nickname must be 2-20 characters.',
+  },
+  join: {
+    title: 'Join {name}',
+    nickname: 'Your nickname',
+    password: 'Room password',
+    submit: 'Join room',
+    wrongPassword: 'Wrong password. Try again.',
+    needNickname: 'Enter a nickname (2-20 characters).',
+  },
+  room: {
+    copyLink: 'Copy link',
+    membersTab: 'Members',
+    chatTab: 'Chat',
+    timerTab: 'Timer',
+    reconnecting: 'Reconnecting…',
+    settings: 'Settings',
+  },
+  timer: {
+    focus: 'Focus',
+    break: 'Break',
+    longBreak: 'Long break',
+    start: 'Start',
+    pause: 'Pause',
+    reset: 'Reset',
+    skip: 'Skip',
+    hostOnly: 'Only the host can control the timer',
+    summary: '{focus} / {break} / {long} min · {cycles} cycles',
+    settings: 'Timer settings',
+  },
+  members: {
+    title: 'Members',
+    you: '(you)',
+    host: 'Host',
+    offline: 'reconnecting…',
+    focusing: 'Focusing',
+    break: 'Break',
+    away: 'Away',
+    makeHost: 'Make host',
+    yourStatus: 'Your status',
+    taskPlaceholder: 'What are you working on?',
+  },
+  chat: {
+    placeholder: 'Type a message…',
+    send: 'Send',
+    newMessages: 'New messages',
+    typingOne: '{name} is typing…',
+    typingTwo: '{a} and {b} are typing…',
+    typingMany: 'Several people are typing…',
+    joined: '{name} joined',
+    left: '{name} left',
+    hostChanged: '{name} is now the host',
+    phaseChanged: 'Phase: {phase}',
+    counter: '{count}/500',
+  },
+  settings: {
+    title: 'Room settings',
+    focusMin: 'Focus (min)',
+    breakMin: 'Break (min)',
+    longBreakMin: 'Long break (min)',
+    cycles: 'Cycles before long break',
+    autoStart: 'Auto-start next phase',
+    timerControl: 'Timer control',
+    controlHost: 'Host only',
+    controlEveryone: 'Everyone',
+    save: 'Save',
+    cancel: 'Cancel',
+    saved: 'Settings saved',
+  },
+  errors: {
+    ROOM_NOT_FOUND: 'Room not found',
+    PASSWORD_REQUIRED: 'This room needs a password',
+    WRONG_PASSWORD: 'Wrong password',
+    INVALID_INPUT: 'Invalid input',
+    RATE_LIMITED: 'Too fast — slow down a little',
+    NOT_IN_ROOM: 'You are not in a room',
+    FORBIDDEN: 'You are not allowed to do that',
+    ROOM_FULL: 'This room is full',
+    INTERNAL: 'Something went wrong',
+  },
+  toasts: {
+    linkCopied: 'Link copied',
+    slowDown: 'Slow down a little',
+    saved: 'Saved',
+  },
+  theme: {
+    label: 'Theme',
+    light: 'Light',
+    dark: 'Dark',
+    system: 'System',
+  },
+  language: {
+    label: 'Language',
+  },
+  sound: {
+    on: 'Sound on',
+    off: 'Sound off',
+  },
+  notFound: {
+    title: 'Page not found',
+    description: 'The link you followed is not valid.',
+    back: 'Back to home',
+  },
+} as const;
+
+type Widen<T> = T extends string ? string : { [K in keyof T]: Widen<T[K]> };
+
+/** Shape every translation must match; a missing key is a compile error. */
+export type Messages = Widen<typeof en>;
+
+/** Dot-path keys of the dictionary, e.g. 'home.createTitle'. */
+export type TranslationKey = {
+  [K in keyof Messages & string]: Messages[K] extends string
+    ? K
+    : `${K}.${TranslationKeyOf<Messages[K]>}`;
+}[keyof Messages & string];
+
+type TranslationKeyOf<T> = {
+  [K in keyof T & string]: T[K] extends string ? K : `${K}.${TranslationKeyOf<T[K]>}`;
+}[keyof T & string];

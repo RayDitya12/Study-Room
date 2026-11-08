@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StudyRoom</title>
+    <script>
+      // Set data-theme before first paint to avoid a flash of the wrong theme.
+      try {
+        var raw = localStorage.getItem('studyroom.prefs');
+        var theme = raw ? JSON.parse(raw).state.theme : 'system';
+        var dark =
+          theme === 'dark' ||
+          ((theme === 'system' || !theme) &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var flavor = dark ? 'mocha' : 'latte';
+        document.documentElement.dataset.theme = flavor;
+        document.documentElement.style.colorScheme = flavor;
+      } catch (e) {
+        document.documentElement.dataset.theme = 'latte';
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

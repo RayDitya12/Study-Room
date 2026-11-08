@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  name             String
+  passwordHash     String?
+  hostClientId     String
+  focusMin         Int       @default(25)
+  breakMin         Int       @default(5)
+  longBreakMin     Int       @default(15)
+  cyclesBeforeLong Int       @default(4)
+  autoStart        Boolean   @default(false)
+  timerControl     String    @default("host")
+  // persisted timer
+  timerPhase       String    @default("focus")
+  timerStatus      String    @default("idle")
+  timerDurationMs  Int       @default(1500000)
+  timerRemainingMs Int       @default(1500000)
+  timerEndsAt      BigInt?
+  completedFocus   Int       @default(0)
+  timerVersion     Int       @default(0)
+  createdAt        DateTime  @default(now())
+  lastActiveAt     DateTime  @default(now())
+  messages         Message[]
+
+  @@index([lastActiveAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  clientId  String
+  nickname  String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([roomId, createdAt])
+}
