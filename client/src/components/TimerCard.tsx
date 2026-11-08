@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { getRemainingMs, type RoomSettings } from '@studyroom/shared';
 import { serverNowEstimate } from '../lib/clock';
 import { formatRemaining } from '../lib/format';
+import { matchPreset } from '../lib/timerPresets';
 import { useNow } from '../hooks/useNow';
+import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
 import { useT } from '../i18n/useT';
 import type { TimerAction } from '../hooks/useRoomConnection';
 import { Button } from './Button';
 import { PhaseDots } from './PhaseDots';
 import { SettingsDialog } from './SettingsDialog';
+import { TimerBar } from './TimerBar';
 import { TimerRing } from './TimerRing';
 
 export interface TimerCardProps {
@@ -26,6 +29,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   const isModerator = useRoomStore(
     (s) => s.members.find((m) => m.userId === s.youUserId)?.isModerator === true,
   );
+  const timerStyle = usePrefsStore((s) => s.timerStyle);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,20 +65,35 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
       aria-label={t('room.timerTab')}
       className="flex h-full flex-col items-center justify-center gap-5 rounded-2xl bg-mantle p-6"
     >
-      <div className="relative mx-auto aspect-square w-full max-w-[240px]">
-        <TimerRing phase={timer.phase} progress={progress} />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+      {timerStyle === 'minimal' ? (
+        <div className="flex w-full max-w-[320px] flex-col items-center gap-3">
           <span
             role="timer"
             aria-live="off"
-            className="font-mono text-5xl font-semibold tabular-nums text-text"
+            className="font-mono text-6xl font-semibold tabular-nums tracking-tight text-text"
           >
             {formatRemaining(remainingMs)}
           </span>
           <span className="text-sm font-medium text-subtext0">{t(`timer.${timer.phase}`)}</span>
+          <TimerBar phase={timer.phase} progress={progress} />
           <PhaseDots total={settings.cyclesBeforeLong} completed={timer.completedFocus} />
         </div>
-      </div>
+      ) : (
+        <div className="relative mx-auto aspect-square w-full max-w-[240px]">
+          <TimerRing phase={timer.phase} progress={progress} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <span
+              role="timer"
+              aria-live="off"
+              className="font-mono text-5xl font-semibold tabular-nums text-text"
+            >
+              {formatRemaining(remainingMs)}
+            </span>
+            <span className="text-sm font-medium text-subtext0">{t(`timer.${timer.phase}`)}</span>
+            <PhaseDots total={settings.cyclesBeforeLong} completed={timer.completedFocus} />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button
@@ -107,16 +126,15 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
       </div>
 
       {!canControl ? <p className="text-xs text-subtext0">{t('timer.hostOnly')}</p> : null}
-      {!isHost ? (
-        <p className="text-center text-xs text-overlay0">
-          {t('timer.summary', {
-            focus: settings.focusMin,
-            break: settings.breakMin,
-            long: settings.longBreakMin,
-            cycles: settings.cyclesBeforeLong,
-          })}
-        </p>
-      ) : null}
+      <p className="text-center text-xs text-overlay0">
+        {t('timer.summary', {
+          name: t(`timer.preset.${matchPreset(settings)}`),
+          focus: settings.focusMin,
+          break: settings.breakMin,
+          long: settings.longBreakMin,
+          cycles: settings.cyclesBeforeLong,
+        })}
+      </p>
 
       <SettingsDialog
         open={settingsOpen}

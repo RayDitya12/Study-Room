@@ -50,8 +50,15 @@ export const en = {
     reset: 'Reset',
     skip: 'Skip',
     hostOnly: 'Only the host and moderators can control the timer',
-    summary: '{focus} / {break} / {long} min · {cycles} cycles',
+    summary: '{name} · {focus} / {break} / {long} min · {cycles} cycles',
     settings: 'Timer settings',
+    preset: {
+      classic: 'Classic',
+      sprint: 'Sprint',
+      deep: 'Deep Focus',
+      ultra: 'Ultra',
+      custom: 'Custom',
+    },
   },
   members: {
     title: 'Members',
@@ -118,6 +125,14 @@ export const en = {
   },
   settings: {
     title: 'Room settings',
+    presetGroup: 'Preset',
+    presets: {
+      classic: 'Classic 25/5',
+      sprint: 'Sprint 15/3',
+      deep: 'Deep Focus 50/10',
+      ultra: 'Ultra 90/20',
+      custom: 'Custom',
+    },
     focusMin: 'Focus (min)',
     breakMin: 'Break (min)',
     longBreakMin: 'Long break (min)',
@@ -177,6 +192,12 @@ export const en = {
       arpeggio: 'Arpeggio',
       sweep: 'Sweep',
     },
+  },
+  display: {
+    title: 'Sound & display',
+    timerStyle: 'Timer style',
+    ring: 'Ring',
+    minimal: 'Minimal',
   },
   notFound: {
     title: 'Page not found',

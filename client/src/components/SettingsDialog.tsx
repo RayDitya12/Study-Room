@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { LIMITS, TIMER_CONTROLS, type RoomSettings, type TimerControl } from '@studyroom/shared';
+import {
+  LIMITS,
+  TIMER_CONTROLS,
+  TIMER_PRESETS,
+  type RoomSettings,
+  type TimerControl,
+} from '@studyroom/shared';
+import { matchPreset, type PresetValues } from '../lib/timerPresets';
 import { useT } from '../i18n/useT';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
@@ -31,6 +38,11 @@ export interface SettingsDialogProps {
   onSave: (patch: Partial<RoomSettings>) => Promise<boolean>;
 }
 
+const chip = (selected: boolean): string =>
+  `rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+    selected ? 'bg-mauve/20 text-mauve' : 'bg-mantle text-subtext0 hover:text-text'
+  }`;
+
 export function SettingsDialog({ open, settings, busy, onClose, onSave }: SettingsDialogProps) {
   const t = useT();
   const [draft, setDraft] = useState<RoomSettings>(settings);
@@ -38,6 +50,12 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
   useEffect(() => {
     if (open) setDraft(settings);
   }, [open, settings]);
+
+  const presetId = matchPreset(draft);
+
+  const applyPreset = (values: PresetValues): void => {
+    setDraft((d) => ({ ...d, ...values }));
+  };
 
   const setNumber = (key: NumberField['key'], raw: string): void => {
     const parsed = Number.parseInt(raw, 10);
@@ -68,6 +86,27 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
           void submit();
         }}
       >
+        <div className="space-y-1.5">
+          <span className="block text-sm text-subtext0">{t('settings.presetGroup')}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {TIMER_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                aria-pressed={presetId === preset.id}
+                onClick={() => applyPreset(preset)}
+                className={chip(presetId === preset.id)}
+              >
+                {t(`settings.presets.${preset.id}`)}
+              </button>
+            ))}
+            {presetId === 'custom' ? (
+              // A status, not a control: there is nothing to click to become custom.
+              <span className={chip(true)}>{t('settings.presets.custom')}</span>
+            ) : null}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map((field) => (
             <label key={field.key} className="block space-y-1.5">

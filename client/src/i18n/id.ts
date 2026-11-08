@@ -52,8 +52,15 @@ export const id: Messages = {
     reset: 'Atur ulang',
     skip: 'Lewati',
     hostOnly: 'Hanya host dan moderator yang bisa mengendalikan timer',
-    summary: '{focus} / {break} / {long} mnt · {cycles} siklus',
+    summary: '{name} · {focus} / {break} / {long} mnt · {cycles} siklus',
     settings: 'Pengaturan timer',
+    preset: {
+      classic: 'Klasik',
+      sprint: 'Sprint',
+      deep: 'Fokus dalam',
+      ultra: 'Ultra',
+      custom: 'Kustom',
+    },
   },
   members: {
     title: 'Anggota',
@@ -120,6 +127,14 @@ export const id: Messages = {
   },
   settings: {
     title: 'Pengaturan ruang',
+    presetGroup: 'Preset',
+    presets: {
+      classic: 'Klasik 25/5',
+      sprint: 'Sprint 15/3',
+      deep: 'Fokus dalam 50/10',
+      ultra: 'Ultra 90/20',
+      custom: 'Kustom',
+    },
     focusMin: 'Fokus (menit)',
     breakMin: 'Istirahat (menit)',
     longBreakMin: 'Istirahat panjang (menit)',
@@ -179,6 +194,12 @@ export const id: Messages = {
       arpeggio: 'Arpeggio',
       sweep: 'Sapuan',
     },
+  },
+  display: {
+    title: 'Suara & tampilan',
+    timerStyle: 'Gaya timer',
+    ring: 'Lingkaran',
+    minimal: 'Minimalis',
   },
   notFound: {
     title: 'Halaman tidak ditemukan',

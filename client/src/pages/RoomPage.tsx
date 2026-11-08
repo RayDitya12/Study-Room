@@ -16,6 +16,7 @@ import { ConnectionBanner } from '../components/ConnectionBanner';
 import { JoinDialog } from '../components/JoinDialog';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { MemberList } from '../components/MemberList';
+import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 import { SoundToggle } from '../components/SoundToggle';
 import { SoundPicker } from '../components/SoundPicker';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -158,6 +159,7 @@ export function RoomPage() {
         </div>
         <LanguageToggle />
         <SoundPicker />
+        <SoundDisplayPopover />
         <SoundToggle />
         <ThemeToggle />
       </header>
