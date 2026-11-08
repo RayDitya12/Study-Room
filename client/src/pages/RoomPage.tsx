@@ -17,6 +17,7 @@ import { JoinDialog } from '../components/JoinDialog';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { MemberList } from '../components/MemberList';
 import { SoundToggle } from '../components/SoundToggle';
+import { SoundPicker } from '../components/SoundPicker';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { TimerCard } from '../components/TimerCard';
 
@@ -156,6 +157,7 @@ export function RoomPage() {
           </div>
         </div>
         <LanguageToggle />
+        <SoundPicker />
         <SoundToggle />
         <ThemeToggle />
       </header>

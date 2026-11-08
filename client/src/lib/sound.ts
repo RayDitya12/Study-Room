@@ -1,10 +1,5 @@
 import type { TimerPhase } from '@studyroom/shared';
-
-const NOTE_C5 = 523.25;
-const NOTE_E5 = 659.25;
-const NOTE_DURATION = 0.15;
-const NOTE_GAP = 0.16;
-const MAX_GAIN = 0.15;
+import { DEFAULT_GAIN, findPreset, reversePreset, type PresetNote, type Wave } from './soundPresets';
 
 let context: AudioContext | null = null;
 let gestureListenerInstalled = false;
@@ -29,24 +24,31 @@ if (typeof window !== 'undefined' && !gestureListenerInstalled) {
   window.addEventListener('keydown', resume);
 }
 
-function playNote(ctx: AudioContext, frequency: number, startsAt: number): void {
+function playNote(ctx: AudioContext, wave: Wave, note: PresetNote, startsAt: number): void {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = frequency;
+  osc.type = wave;
+  osc.frequency.setValueAtTime(note.freq, startsAt);
+  if (note.glideTo) osc.frequency.linearRampToValueAtTime(note.glideTo, startsAt + note.dur);
   gain.gain.setValueAtTime(0, startsAt);
-  gain.gain.linearRampToValueAtTime(MAX_GAIN, startsAt + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, startsAt + NOTE_DURATION);
+  gain.gain.linearRampToValueAtTime(note.gain ?? DEFAULT_GAIN, startsAt + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startsAt + note.dur);
   osc.connect(gain).connect(ctx.destination);
   osc.start(startsAt);
-  osc.stop(startsAt + NOTE_DURATION + 0.02);
+  osc.stop(startsAt + note.dur + 0.02);
 }
 
-export function playPhaseChange(toPhase: TimerPhase): void {
+export function playPreset(id: string, options: { descending?: boolean } = {}): void {
   const ctx = getContext();
   if (!ctx) return;
   if (ctx.state === 'suspended') void ctx.resume();
-  const notes = toPhase === 'focus' ? [NOTE_C5, NOTE_E5] : [NOTE_E5, NOTE_C5];
+  const source = findPreset(id);
+  const preset = options.descending ? reversePreset(source) : source;
   const base = ctx.currentTime + 0.02;
-  notes.forEach((frequency, i) => playNote(ctx, frequency, base + i * NOTE_GAP));
+  for (const note of preset.notes) playNote(ctx, preset.wave, note, base + note.at);
+}
+
+/** The chime that marks a completed phase: rising into focus, falling out of it. */
+export function playPhaseChange(toPhase: TimerPhase, presetId: string): void {
+  playPreset(presetId, { descending: toPhase !== 'focus' });
 }

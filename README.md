@@ -15,7 +15,8 @@ waiting for you.
 - Host-only member menu: moderator, mute, kick and ban, each confirmed, with a list to lift blocks
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
-- Phase-change chime generated with WebAudio (no audio files), sound toggle
+- Phase-change chime synthesised with WebAudio (no audio files), sound toggle and a picker for 10 chime
+  voices, saved per device
 - Catppuccin themes: Mocha (dark) and Latte (light), flash-free; the system setting decides the first
   run and the toggle only ever switches between those two
 - JetBrains Mono across the whole UI: a locally installed JetBrainsMono Nerd Font is used when present,
@@ -85,6 +86,12 @@ is what makes the removed tab forget its session and show a "you were removed" s
 rejoining in a loop. Blocked ids are refused at the door by `room:join` (`KICKED` / `BANNED`) even under
 a new nickname, and the host can lift any block early from the "Blocked" list. Blocks are stored by
 `userId`, never by `clientId`.
+
+**Timer sound.** When a phase ends on your own device the client synthesises a short chime with
+WebAudio — no audio files are downloaded, and the room is not involved. The slider icon opens a picker
+with 10 voices (classic, bell, chime, marimba, beep, pulse, gong, pluck, arpeggio, sweep); choosing one
+plays it immediately as a preview. The choice and the on/off toggle are stored in `localStorage` next to
+the theme and language, because a chime is a personal preference, not room state.
 
 **Identity model.** The browser generates one `clientId` (UUID v4) and keeps it in `localStorage`.
 It is a secret: it is sent only to the server on join and is never broadcast. Everything other users

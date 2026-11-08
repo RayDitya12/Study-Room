@@ -161,6 +161,20 @@ export const en = {
   sound: {
     on: 'Sound on',
     off: 'Sound off',
+    picker: 'Timer sound',
+    pickerHint: 'Played here when a phase ends. Pick one to hear it.',
+    presets: {
+      classic: 'Classic',
+      bell: 'Bell',
+      chime: 'Chime',
+      marimba: 'Marimba',
+      beep: 'Beep',
+      pulse: 'Pulse',
+      gong: 'Gong',
+      pluck: 'Pluck',
+      arpeggio: 'Arpeggio',
+      sweep: 'Sweep',
+    },
   },
   notFound: {
     title: 'Page not found',

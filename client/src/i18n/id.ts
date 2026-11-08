@@ -163,6 +163,20 @@ export const id: Messages = {
   sound: {
     on: 'Suara aktif',
     off: 'Suara nonaktif',
+    picker: 'Suara timer',
+    pickerHint: 'Diputar di perangkat ini saat sebuah fase berakhir. Pilih untuk mendengarnya.',
+    presets: {
+      classic: 'Klasik',
+      bell: 'Lonceng',
+      chime: 'Denting',
+      marimba: 'Marimba',
+      beep: 'Bip',
+      pulse: 'Denyut',
+      gong: 'Gong',
+      pluck: 'Kutik',
+      arpeggio: 'Arpeggio',
+      sweep: 'Sapuan',
+    },
   },
   notFound: {
     title: 'Halaman tidak ditemukan',

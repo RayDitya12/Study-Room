@@ -159,8 +159,9 @@ export function useRoomConnection(code: string): {
     );
     socket.on('timer:state', (event) => {
       useRoomStore.getState().timerState(event);
-      if (event.reason === 'complete' && usePrefsStore.getState().soundOn) {
-        playPhaseChange(event.timer.phase);
+      const prefs = usePrefsStore.getState();
+      if (event.reason === 'complete' && prefs.soundOn) {
+        playPhaseChange(event.timer.phase, prefs.soundPreset);
       }
     });
 
