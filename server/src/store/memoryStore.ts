@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createInitialTimer, LIMITS } from '@studyroom/shared';
-import type { RoomStore, StoredMessage, StoredRoom } from './RoomStore';
+import type { RoomStore, StoredBlock, StoredMessage, StoredRoom } from './RoomStore';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -8,6 +8,8 @@ export function createMemoryStore(): RoomStore {
   const roomsById = new Map<string, StoredRoom>();
   const roomIdsByCode = new Map<string, string>();
   const messagesByRoom = new Map<string, StoredMessage[]>();
+  // Expired kicks are filtered by the runtime, which owns the clock.
+  const blocksByRoom = new Map<string, Map<string, StoredBlock>>();
   // Pruning runs after every 20th addMessage for a room.
   const addCounts = new Map<string, number>();
 
@@ -28,6 +30,7 @@ export function createMemoryStore(): RoomStore {
       roomsById.set(room.id, room);
       roomIdsByCode.set(room.code, room.id);
       messagesByRoom.set(room.id, []);
+      blocksByRoom.set(room.id, new Map());
       return clone(room);
     },
 
@@ -69,6 +72,30 @@ export function createMemoryStore(): RoomStore {
       return clone(list.slice(Math.max(0, list.length - limit)));
     },
 
+    async addBlock(input) {
+      let blocks = blocksByRoom.get(input.roomId);
+      if (!blocks) {
+        blocks = new Map();
+        blocksByRoom.set(input.roomId, blocks);
+      }
+      blocks.set(input.userId, {
+        userId: input.userId,
+        nickname: input.nickname,
+        reason: input.reason,
+        blockedAt: input.blockedAt,
+        expiresAt: input.expiresAt,
+      });
+    },
+
+    async removeBlock(roomId, userId) {
+      blocksByRoom.get(roomId)?.delete(userId);
+    },
+
+    async listBlocks(roomId) {
+      const blocks = [...(blocksByRoom.get(roomId)?.values() ?? [])];
+      return clone(blocks.sort((a, b) => a.blockedAt - b.blockedAt));
+    },
+
     async listRunningRooms() {
       return [...roomsById.values()].filter((room) => room.timer.status === 'running').map(clone);
     },
@@ -80,6 +107,7 @@ export function createMemoryStore(): RoomStore {
           roomsById.delete(room.id);
           roomIdsByCode.delete(room.code);
           messagesByRoom.delete(room.id);
+          blocksByRoom.delete(room.id);
           addCounts.delete(room.id);
           deleted++;
         }

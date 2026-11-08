@@ -9,6 +9,7 @@ const member = (over: Partial<Member> = {}): Member => ({
   task: '',
   isHost: false,
   isModerator: false,
+  isMuted: false,
   online: true,
   joinedAt: 1_000,
   ...over,

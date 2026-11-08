@@ -1,5 +1,7 @@
 import type {
   Ack,
+  BlockedMember,
+  BlockReason,
   ChatMessage,
   Member,
   MemberStatus,
@@ -33,6 +35,16 @@ export interface SetModeratorPayload {
   isModerator: boolean;
 }
 
+export interface SetMutedPayload {
+  targetUserId: string;
+  isMuted: boolean;
+}
+
+/** Target of a host action: kick, ban or lift a block. */
+export interface MemberTargetPayload {
+  targetUserId: string;
+}
+
 export interface ClientToServerEvents {
   'time:sync': (payload: TimeSyncPayload, ack: (res: Ack<TimeSyncResult>) => void) => void;
   'room:join': (
@@ -59,12 +71,26 @@ export interface ClientToServerEvents {
     ack: (res: Ack<EmptyPayload>) => void,
   ) => void;
   'member:setModerator': (payload: SetModeratorPayload, ack: (res: Ack<Member>) => void) => void;
+  'member:setMuted': (payload: SetMutedPayload, ack: (res: Ack<Member>) => void) => void;
+  'member:kick': (payload: MemberTargetPayload, ack: (res: Ack<EmptyPayload>) => void) => void;
+  'member:ban': (payload: MemberTargetPayload, ack: (res: Ack<EmptyPayload>) => void) => void;
+  'member:unban': (
+    payload: MemberTargetPayload,
+    ack: (res: Ack<EmptyPayload>) => void,
+  ) => void;
+  /** Host-only: the kick/ban list, so a mistaken block can be lifted. */
+  'room:getBlocks': (payload: EmptyPayload, ack: (res: Ack<BlockedMember[]>) => void) => void;
 }
 
 export interface ServerToClientEvents {
   'member:joined': (member: Member) => void;
   'member:left': (payload: { userId: string }) => void;
   'member:offline': (payload: { userId: string }) => void;
+  /**
+   * The host removed someone. Replaces `member:left` for that person, and the
+   * client whose own id it carries must drop its stored session.
+   */
+  'room:kicked': (payload: { userId: string; reason: BlockReason }) => void;
   'member:updated': (member: Member) => void;
   'room:hostChanged': (payload: { hostUserId: string; reason: 'transfer' | 'auto' }) => void;
   'room:settingsUpdated': (settings: RoomSettings) => void;

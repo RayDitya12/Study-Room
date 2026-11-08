@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getRemainingMs } from '@studyroom/shared';
+import { getRemainingMs, KICK_COOLDOWN_MS } from '@studyroom/shared';
 import { getRoomMeta, type RoomMeta } from '../lib/api';
 import { serverNowEstimate } from '../lib/clock';
 import { copyText } from '../lib/clipboard';
@@ -43,6 +43,7 @@ export function RoomPage() {
   const roomName = useRoomStore((s) => s.name);
   const timer = useRoomStore((s) => s.timer);
   const messages = useRoomStore((s) => s.messages);
+  const kicked = useRoomStore((s) => s.kicked);
   useNow(1_000);
 
   useEffect(() => {
@@ -110,6 +111,25 @@ export function RoomPage() {
     );
   }
 
+  if (kicked) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center">
+        <h1 className="text-xl font-semibold">{t('kicked.title')}</h1>
+        <p className="max-w-md text-sm text-subtext0">
+          {kicked === 'ban'
+            ? t('kicked.ban')
+            : t('kicked.kick', { minutes: Math.round(KICK_COOLDOWN_MS / 60_000) })}
+        </p>
+        <Link
+          to="/"
+          className="rounded-xl bg-surface0 px-4 py-2 text-sm text-text hover:bg-surface1"
+        >
+          {t('kicked.back')}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-3 border-b border-surface0 px-4 py-3">
@@ -145,11 +165,7 @@ export function RoomPage() {
       <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)_360px]">
         <div className={panel(tab === 'members')}>
           <div className="min-h-0 flex-1 rounded-2xl bg-mantle p-3">
-            <MemberList
-              onUpdateMember={(patch) => void actions.updateMember(patch)}
-              onTransferHost={(userId) => void actions.transferHost(userId)}
-              onSetModerator={(userId, isModerator) => void actions.setModerator(userId, isModerator)}
-            />
+            <MemberList actions={actions} />
           </div>
         </div>
 

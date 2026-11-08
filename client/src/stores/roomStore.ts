@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  BlockReason,
   ChatMessage,
   Member,
   RoomSettings,
@@ -48,6 +49,8 @@ interface RoomState {
   messages: MessageItem[];
   /** userId -> local timestamp at which the indicator expires. */
   typing: Record<string, number>;
+  /** Set when the host removed *this* client from the room. */
+  kicked: BlockReason | null;
 
   setConnection: (connection: ConnectionStatus) => void;
   applySnapshot: (snapshot: RoomSnapshot) => void;
@@ -55,6 +58,8 @@ interface RoomState {
   memberLeft: (userId: string) => void;
   memberOffline: (userId: string) => void;
   memberUpdated: (member: Member) => void;
+  memberKicked: (userId: string, reason: BlockReason) => void;
+  setKicked: (reason: BlockReason) => void;
   hostChanged: (hostUserId: string) => void;
   settingsUpdated: (settings: RoomSettings) => void;
   timerState: (event: TimerStateEvent) => void;
@@ -103,6 +108,7 @@ const empty = {
   timer: null,
   messages: [] as MessageItem[],
   typing: {} as Record<string, number>,
+  kicked: null,
 };
 
 export const useRoomStore = create<RoomState>()((set) => ({
@@ -129,6 +135,7 @@ export const useRoomStore = create<RoomState>()((set) => ({
         createdAt: message.createdAt,
       })),
       typing: {},
+      kicked: null,
     }),
 
   memberJoined: (member) =>
@@ -171,6 +178,29 @@ export const useRoomStore = create<RoomState>()((set) => ({
       if (!s.members.some((m) => m.userId === member.userId)) return s;
       return { members: upsert(s.members, member) };
     }),
+
+  // Replaces member:left for a host-ordered removal, so it gets its own line.
+  memberKicked: (userId, reason) =>
+    set((s) => {
+      const member = s.members.find((m) => m.userId === userId);
+      if (!member) return s;
+      if (userId === s.youUserId) {
+        return { ...empty, connection: 'disconnected', kicked: reason };
+      }
+      const typing = { ...s.typing };
+      delete typing[userId];
+      return {
+        members: s.members.filter((m) => m.userId !== userId),
+        messages: [
+          ...s.messages,
+          systemLine(reason === 'ban' ? 'chat.banned' : 'chat.kicked', { name: member.nickname }),
+        ],
+        typing,
+      };
+    }),
+
+  // A join rejected as KICKED/BANNED never created a member entry to remove.
+  setKicked: (reason) => set({ ...empty, connection: 'disconnected', kicked: reason }),
 
   hostChanged: (hostUserId) =>
     set((s) => {

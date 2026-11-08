@@ -11,7 +11,7 @@ One line per decision taken where SPEC.md left room for interpretation.
 - The password failure limiter is a sliding-window counter (5 failures/min per IP+room) rather than a token bucket, matching "5 failures per minute" semantics exactly.
 - `room:join` re-join with the same clientId refreshes the nickname (sanitized + de-duplicated) but keeps the original `joinedAt`.
 - Boot recovery applies `complete()` at most once per room, as specified; with `autoStart` the next phase is then scheduled normally.
-- "Host menu" is a pair of icon buttons on each member row (visible on hover/focus): shield = grant/revoke moderator, crown = transfer host. No dropdown, since those are the only two host actions on a member.
+- "Host menu" is a three-dot popover on each member row (`MemberMenu`): timer control, make host, mute, kick, ban. Role changes and removals ask for confirmation first; mute is a one-click toggle the host can reverse just as fast.
 - Chat system lines are stored as translation keys + params and translated at render, so switching language retranslates the visible history.
 - Phases 6 and 7 were implemented together: the timer card and the room page are one screen and share the same connection hook.
 - `MAX_MEMBERS` is validated with `.max(30)`, so the SPEC cap cannot be raised through the environment.
@@ -33,3 +33,14 @@ One line per decision taken where SPEC.md left room for interpretation.
 - `settings.timerControl: 'host'` now means "host and moderators". The enum values are unchanged so stored rooms and the shared schema stay compatible; only the label changed to "Host & moderators".
 - Chat name colours: host gold (`text-yellow`), moderator silver (`text-subtext1`), everyone else mauve. The colour is resolved from the live member list, so a message from someone who already left falls back to mauve. Own messages keep no name line, per SPEC 8.2.
 - Copy link falls back to a hidden `<textarea>` + `document.execCommand('copy')` when `navigator.clipboard` is missing or rejects — which is what happens in an embedded browser over plain http. Failure now toasts `toasts.copyFailed` instead of the misleading `errors.INTERNAL`.
+
+## Member moderation (2026-11-08, requested by the owner)
+
+- The two hover icon buttons on a member row became one three-dot popover (`MemberMenu.tsx`) holding timer control, make host, mute, kick and ban. It is positioned `fixed` against the trigger, because the members list scrolls and would clip an absolutely positioned menu; it closes on Escape, outside mousedown, scroll or resize.
+- Role changes and removals go through `ConfirmDialog` first — the owner asked for a confirmation on role changes, and a kick/ban cannot be undone from the row either. Mute/unmute applies immediately since one more click reverses it.
+- **Mute.** `Member.isMuted` is presence state like `isModerator`: host-only toggle, checked in `sendChat` (ack `MUTED`) and in `setTyping` (dropped silently, so no indicator is broadcast). It is not persisted, so a member who drops past the grace window comes back un-muted.
+- **Kick and ban share one mechanism**: a `RoomBlock` row keyed by `(roomId, userId)` with a nullable `expiresAt`. A kick writes `now + KICK_COOLDOWN_MS` (15 min) and lapses on its own; a ban writes null and lasts until the host lifts it. Only the public `userId` is stored — `clientId` is a secret per SPEC 9.
+- The block is checked at the top of `room:join`, before the password and capacity checks, so a removed person cannot get back in under a new nickname. Expired kicks are pruned lazily when that id is next looked at, so the store needs no timer of its own.
+- A host-ordered removal emits `room:kicked {userId, reason}` instead of `member:left`. That is what lets the removed person's own tab clear its stored session and show the "you were removed" screen rather than auto-rejoining in a loop.
+- Neither the host nor an unknown/offline id is a legal target (`INVALID_INPUT`), and only the host may moderate (`FORBIDDEN`), so a guest can never kick the host to take the room — auto-transfer already covers the host leaving.
+- **Blocked list.** `room:getBlocks` (host-only) returns who is kept out with the nickname they had at removal time, so the list is readable; `member:unban` lifts a block early and the row disappears.

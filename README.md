@@ -12,6 +12,7 @@ waiting for you.
 - Shared timer: focus / break / long break, configurable durations, cycles before long break,
   optional auto-start, controlled by the host, host-appointed moderators, or everyone
 - Presence that survives a refresh: grace period, multi-tab as one member, automatic host transfer
+- Host-only member menu: moderator, mute, kick and ban, each confirmed, with a list to lift blocks
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
 - Phase-change chime generated with WebAudio (no audio files), sound toggle
@@ -66,12 +67,21 @@ session.
 past the grace period, the role goes automatically to the online member with the smallest
 `joinedAt`, and the new state is persisted before `room:hostChanged` is broadcast.
 
-**Moderators.** There is always exactly one host, but the host can hand out a lower tier: the shield
-icon on a member row makes that member a moderator. A moderator may drive the timer — start, pause,
-reset, skip — and nothing else: room settings, role changes and the host transfer stay host-only, and
-every one of those checks is enforced on the server, not just hidden in the UI. Promoting a moderator
-to host clears the flag. In chat the host's name is gold and a moderator's is silver. The flag lives
-with the member's presence, so like status and task it is not persisted across a server restart.
+**Moderators.** There is always exactly one host, but the host can hand out a lower tier: the three-dot
+menu on a member row offers timer control, make host, mute, kick and ban. A moderator may drive the
+timer — start, pause, reset, skip — and nothing else: room settings, role changes and moderation stay
+host-only, and every one of those checks is enforced on the server, not just hidden in the UI.
+Promoting a moderator to host clears the flag. In chat the host's name is gold and a moderator's is
+silver. The flag lives with the member's presence, so like status and task it is not persisted across a
+server restart.
+
+**Kick and ban.** Mute blocks chat only: `chat:send` answers `MUTED` and that member's typing
+indicators are dropped without a broadcast. A kick writes a `RoomBlock` row that expires after 15
+minutes; a ban is the same row with no expiry. Both remove the member at once with `room:kicked`, which
+is what makes the removed tab forget its session and show a "you were removed" screen instead of
+rejoining in a loop. Blocked ids are refused at the door by `room:join` (`KICKED` / `BANNED`) even under
+a new nickname, and the host can lift any block early from the "Blocked" list. Blocks are stored by
+`userId`, never by `clientId`.
 
 **Identity model.** The browser generates one `clientId` (UUID v4) and keeps it in `localStorage`.
 It is a secret: it is sent only to the server on join and is never broadcast. Everything other users
@@ -120,6 +130,10 @@ npm run dev -w client          # terminal 2
 Open <http://localhost:5173>, create a room, then open the printed link in a **private window** (a
 private window gets its own `clientId`, so it behaves like a second person).
 
+To see the moderation menu, use the host window: the ⋮ on the other member asks for confirmation
+before a role change or a removal, "Blocked" in the Members header lists kicks and bans and lifts them,
+and the removed window lands on a "you were removed" screen instead of rejoining.
+
 ### Full start (Postgres)
 
 ```bash
@@ -130,6 +144,8 @@ npm run dev
 ```
 
 `docker compose up` (without `-d db`) also builds and runs the server container on port 3001.
+Re-run `npm run db:push` after pulling, whenever `schema.prisma` changed — that is how the `RoomBlock`
+table gets added to an existing database.
 
 ### Environment variables
 
@@ -172,13 +188,15 @@ npm test
 - **server unit** — text sanitizing, the token-bucket and failure rate limiters (fake clock), id
   generation, REST routes, and `RoomRuntime` with a fake clock: phase auto-advance, auto-start
   chaining, grace removal, reconnect cancelling grace, host transfer, empty-room pause, nickname
-  de-duplication, timer permissions, moderator appointments, boot recovery.
+  de-duplication, timer permissions, moderator appointments, mute, kick/ban blocks and their
+  cooldown, block list, boot recovery.
 - **server integration** — the real HTTP + Socket.io server on a random port with two
   `socket.io-client` instances: presence, chat, passwords, permissions, grace/reconnect, host
-  transfer, moderators, rate limits, `time:sync`.
+  transfer, moderators, mute, kick/ban (`room:kicked`, rejoin refused, unban), rate limits,
+  `time:sync`.
 - **client** — i18n key/placeholder parity between `en` and `id`, `formatRemaining`, clock-offset
   selection, chat name colours per role, and the room store (snapshot replacement, system lines,
-  out-of-order timer versions, typing expiry).
+  out-of-order timer versions, typing expiry, removal of a kicked member and the self-kicked screen).
 
 ## Windows / PowerShell notes
 

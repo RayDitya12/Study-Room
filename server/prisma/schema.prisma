@@ -30,6 +30,7 @@ model Room {
   createdAt        DateTime  @default(now())
   lastActiveAt     DateTime  @default(now())
   messages         Message[]
+  blocks           RoomBlock[]
 
   @@index([lastActiveAt])
 }
@@ -44,4 +45,20 @@ model Message {
   createdAt DateTime @default(now())
 
   @@index([roomId, createdAt])
+}
+
+// Kicked or banned members. Keyed by the public userId so no clientId is stored.
+model RoomBlock {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  // Nickname at removal time, kept only so the host's block list is readable.
+  nickname  String   @default("")
+  reason    String
+  blockedAt DateTime @default(now())
+  // Set for a kick, null for a ban that lasts until the host lifts it.
+  expiresAt DateTime?
+
+  @@unique([roomId, userId])
 }

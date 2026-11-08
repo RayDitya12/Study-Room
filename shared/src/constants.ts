@@ -32,5 +32,11 @@ export const ERROR_CODES = [
   'NOT_IN_ROOM',
   'FORBIDDEN',
   'ROOM_FULL',
+  'MUTED',
+  'KICKED',
+  'BANNED',
   'INTERNAL',
 ] as const;
+
+/** How long a kick keeps a member out before they may join again on their own. */
+export const KICK_COOLDOWN_MS = 15 * 60_000;

@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { ChatMessage, Member, RoomSettings, RoomSnapshot, TimerState } from '@studyroom/shared';
+import type {
+  BlockedMember,
+  ChatMessage,
+  Member,
+  RoomSettings,
+  RoomSnapshot,
+  TimerState,
+} from '@studyroom/shared';
 import type { TimerStateEvent } from '@studyroom/shared';
 import { LIMITS } from '@studyroom/shared';
 import {
@@ -346,6 +353,120 @@ describe('6b. moderators', () => {
     ).toEqual({ ok: false, error: 'INVALID_INPUT' });
 
     expect(await emitAck<Member>(a, 'member:setModerator', { targetUserId: 'x' })).toEqual({
+      ok: false,
+      error: 'INVALID_INPUT',
+    });
+  });
+});
+
+describe('6c. mute, kick and ban', () => {
+  it('a muted member loses chat but keeps everything else', async () => {
+    const hostCid = cid();
+    const guestCid = cid();
+    const code = await server.createRoom({ name: 'Mute room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: guestCid });
+
+    const updatedOnB = nextEvent<Member>(b, 'member:updated');
+    expect(
+      (await emitAck<Member>(a, 'member:setMuted', { targetUserId: snapB.you.userId, isMuted: true }))
+        .ok,
+    ).toBe(true);
+    expect(await updatedOnB).toMatchObject({ isMuted: true });
+
+    expect(await emitAck<ChatMessage>(b, 'chat:send', { text: 'can I still talk?' })).toEqual({
+      ok: false,
+      error: 'MUTED',
+    });
+    // Typing is dropped without a broadcast, so the other side stays quiet.
+    const typing = collectEvents<{ userId: string; isTyping: boolean }>(a, 'chat:typing');
+    await emitAck<Record<string, never>>(b, 'chat:typing', { isTyping: true });
+    await sleep(50);
+    expect(typing.events).toEqual([]);
+    typing.stop();
+
+    // A muted member still controls the timer if they were a moderator.
+    expect((await emitAck<ChatMessage>(a, 'chat:send', { text: 'host is fine' })).ok).toBe(true);
+    expect(
+      (await emitAck<Member>(a, 'member:setMuted', { targetUserId: snapB.you.userId, isMuted: false }))
+        .ok,
+    ).toBe(true);
+    expect((await emitAck<ChatMessage>(b, 'chat:send', { text: 'back again' })).ok).toBe(true);
+  });
+
+  it('a kick removes the member, blocks the door, and can be lifted', async () => {
+    const hostCid = cid();
+    const guestCid = cid();
+    const code = await server.createRoom({ name: 'Kick room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: guestCid });
+
+    const onHost = nextEvent<{ userId: string; reason: string }>(a, 'room:kicked');
+    const onGuest = nextEvent<{ userId: string; reason: string }>(b, 'room:kicked');
+    expect((await emitAck<Record<string, never>>(a, 'member:kick', { targetUserId: snapB.you.userId })).ok).toBe(
+      true,
+    );
+    expect(await onHost).toEqual({ userId: snapB.you.userId, reason: 'kick' });
+    expect(await onGuest).toEqual({ userId: snapB.you.userId, reason: 'kick' });
+
+    const c = await client();
+    expect(
+      await emitAck<RoomSnapshot>(c, 'room:join', { code, nickname: 'Budi', clientId: guestCid }),
+    ).toEqual({ ok: false, error: 'KICKED' });
+
+    const blocks = await emitAck<BlockedMember[]>(a, 'room:getBlocks', {});
+    expect(blocks.ok).toBe(true);
+    if (!blocks.ok) return;
+    expect(blocks.data).toHaveLength(1);
+    expect(blocks.data[0]).toMatchObject({
+      userId: snapB.you.userId,
+      nickname: 'Budi',
+      reason: 'kick',
+      expiresAt: expect.any(Number),
+    });
+
+    expect((await emitAck<Record<string, never>>(a, 'member:unban', { targetUserId: snapB.you.userId })).ok).toBe(
+      true,
+    );
+    expect((await emitAck<RoomSnapshot>(c, 'room:join', { code, nickname: 'Budi', clientId: guestCid })).ok).toBe(
+      true,
+    );
+  });
+
+  it('a ban keeps working people out, and only the host may hand one out', async () => {
+    const hostCid = cid();
+    const guestCid = cid();
+    const code = await server.createRoom({ name: 'Ban room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    const snapA = await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: guestCid });
+
+    expect(
+      await emitAck<Record<string, never>>(b, 'member:ban', { targetUserId: snapA.you.userId }),
+    ).toEqual({ ok: false, error: 'FORBIDDEN' });
+    // A guest cannot ban the host, so it cannot clear the seat for itself.
+    expect(
+      await emitAck<Record<string, never>>(b, 'member:kick', { targetUserId: snapA.you.userId }),
+    ).toEqual({ ok: false, error: 'FORBIDDEN' });
+
+    expect((await emitAck<Record<string, never>>(a, 'member:ban', { targetUserId: snapB.you.userId })).ok).toBe(
+      true,
+    );
+    const c = await client();
+    expect(
+      await emitAck<RoomSnapshot>(c, 'room:join', { code, nickname: 'Budi', clientId: guestCid }),
+    ).toEqual({ ok: false, error: 'BANNED' });
+
+    expect(await emitAck<Record<string, never>>(a, 'member:kick', {})).toEqual({
+      ok: false,
+      error: 'INVALID_INPUT',
+    });
+    expect(await emitAck<Record<string, never>>(a, 'member:kick', { targetUserId: '' })).toEqual({
       ok: false,
       error: 'INVALID_INPUT',
     });

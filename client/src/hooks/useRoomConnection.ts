@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Ack,
+  BlockedMember,
   ChatMessage,
   EmptyPayload,
   ErrorCode,
@@ -13,7 +14,13 @@ import type {
 import { clockSync } from '../lib/clock';
 import { createSocket, type AppSocketClient } from '../lib/socket';
 import { playPhaseChange } from '../lib/sound';
-import { getClientId, getRoomSession, setNickname, setRoomSession } from '../lib/session';
+import {
+  clearRoomSession,
+  getClientId,
+  getRoomSession,
+  setNickname,
+  setRoomSession,
+} from '../lib/session';
 import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
 import { useToastStore } from '../stores/toastStore';
@@ -33,7 +40,12 @@ export interface RoomActions {
   timerAction: (action: TimerAction) => Promise<void>;
   updateSettings: (patch: Partial<RoomSettings>) => Promise<boolean>;
   transferHost: (targetUserId: string) => Promise<void>;
-  setModerator: (targetUserId: string, isModerator: boolean) => Promise<void>;
+  setModerator: (targetUserId: string, isModerator: boolean) => Promise<boolean>;
+  setMuted: (targetUserId: string, isMuted: boolean) => Promise<boolean>;
+  kick: (targetUserId: string) => Promise<boolean>;
+  ban: (targetUserId: string) => Promise<boolean>;
+  unban: (targetUserId: string) => Promise<boolean>;
+  getBlocks: () => Promise<BlockedMember[] | null>;
 }
 
 const ACK_TIMEOUT_MS = 10_000;
@@ -106,6 +118,9 @@ export function useRoomConnection(code: string): {
           useRoomStore.getState().applySnapshot(res.data);
         } else if (res.error === 'ROOM_NOT_FOUND') {
           useToastStore.getState().push(errorText(tRef.current, res.error));
+        } else if (res.error === 'KICKED' || res.error === 'BANNED') {
+          clearRoomSession();
+          useRoomStore.getState().setKicked(res.error === 'BANNED' ? 'ban' : 'kick');
         }
       });
     };
@@ -122,6 +137,16 @@ export function useRoomConnection(code: string): {
     socket.on('member:left', ({ userId }) => useRoomStore.getState().memberLeft(userId));
     socket.on('member:offline', ({ userId }) => useRoomStore.getState().memberOffline(userId));
     socket.on('member:updated', (member: Member) => useRoomStore.getState().memberUpdated(member));
+    socket.on('room:kicked', ({ userId, reason }) => {
+      const mine = userId === useRoomStore.getState().youUserId;
+      useRoomStore.getState().memberKicked(userId, reason);
+      if (!mine) return;
+      // Dropped by the host: forget the session so nothing re-joins, and stop
+      // this socket rather than letting the reconnect logic fight the ban.
+      clockSync.stop();
+      clearRoomSession();
+      socket.disconnect();
+    });
     socket.on('room:hostChanged', ({ hostUserId }) =>
       useRoomStore.getState().hostChanged(hostUserId),
     );
@@ -175,6 +200,18 @@ export function useRoomConnection(code: string): {
     useToastStore.getState().push(errorText(tRef.current, error));
   }, []);
 
+  /** For actions whose only outcome the UI cares about is success or failure. */
+  const run = useCallback(
+    async <T>(
+      emit: (socket: AppSocketClient, cb: (res: Ack<T>) => void) => void,
+    ): Promise<boolean> => {
+      const res = await request<T>(emit);
+      if (!res.ok) notifyError(res.error);
+      return res.ok;
+    },
+    [notifyError, request],
+  );
+
   const actions = useMemo<RoomActions>(
     () => ({
       join: async (nickname, password) => {
@@ -191,7 +228,13 @@ export function useRoomConnection(code: string): {
             cb,
           ),
         );
-        if (!res.ok) return { ok: false, error: res.error };
+        if (!res.ok) {
+          if (res.error === 'KICKED' || res.error === 'BANNED') {
+            clearRoomSession();
+            useRoomStore.getState().setKicked(res.error === 'BANNED' ? 'ban' : 'kick');
+          }
+          return { ok: false, error: res.error };
+        }
         useRoomStore.getState().applySnapshot(res.data);
         setNickname(nickname);
         setRoomSession({ code: roomCode, nickname, ...(password ? { password } : {}) });
@@ -236,14 +279,32 @@ export function useRoomConnection(code: string): {
         );
         if (!res.ok) notifyError(res.error);
       },
-      setModerator: async (targetUserId, isModerator) => {
-        const res = await request<Member>((socket, cb) =>
+      setModerator: (targetUserId, isModerator) =>
+        run<Member>((socket, cb) =>
           socket.emit('member:setModerator', { targetUserId, isModerator }, cb),
+        ),
+      setMuted: (targetUserId, isMuted) =>
+        run<Member>((socket, cb) =>
+          socket.emit('member:setMuted', { targetUserId, isMuted }, cb),
+        ),
+      kick: (targetUserId) =>
+        run<EmptyPayload>((socket, cb) => socket.emit('member:kick', { targetUserId }, cb)),
+      ban: (targetUserId) =>
+        run<EmptyPayload>((socket, cb) => socket.emit('member:ban', { targetUserId }, cb)),
+      unban: (targetUserId) =>
+        run<EmptyPayload>((socket, cb) => socket.emit('member:unban', { targetUserId }, cb)),
+      getBlocks: async () => {
+        const res = await request<BlockedMember[]>((socket, cb) =>
+          socket.emit('room:getBlocks', {}, cb),
         );
-        if (!res.ok) notifyError(res.error);
+        if (!res.ok) {
+          notifyError(res.error);
+          return null;
+        }
+        return res.data;
       },
     }),
-    [notifyError, request],
+    [notifyError, request, run],
   );
 
   return { autoJoinPending, actions };

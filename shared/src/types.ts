@@ -35,8 +35,26 @@ export interface Member {
   isHost: boolean;
   /** Timer control without host rights; always false for the host itself. */
   isModerator: boolean;
+  /** Chat blocked by the host. */
+  isMuted: boolean;
   online: boolean;
   joinedAt: number;
+}
+
+export type BlockReason = 'kick' | 'ban';
+
+/**
+ * A member the host removed. They cannot join again while the block is active:
+ * a kick expires on its own, a ban lasts until the host lifts it.
+ */
+export interface BlockedMember {
+  userId: string;
+  /** Nickname at the time of the removal, so the block list is readable. */
+  nickname: string;
+  reason: BlockReason;
+  blockedAt: number;
+  /** Server epoch ms for a kick, null for a ban. */
+  expiresAt: number | null;
 }
 
 export interface ChatMessage {

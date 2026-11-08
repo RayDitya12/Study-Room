@@ -9,6 +9,7 @@ const member = (over: Partial<Member> = {}): Member => ({
   task: '',
   isHost: true,
   isModerator: false,
+  isMuted: false,
   online: true,
   joinedAt: 1_000,
   ...over,
@@ -140,5 +141,46 @@ describe('roomStore', () => {
     useRoomStore.getState().memberOffline('u2');
     expect(useRoomStore.getState().typing.u2).toBeUndefined();
     expect(useRoomStore.getState().members.find((m) => m.userId === 'u2')?.online).toBe(false);
+  });
+
+  it('removes a kicked member with a line naming the reason', () => {
+    useRoomStore.getState().applySnapshot(
+      snapshot({ members: [member(), member({ userId: 'u2', nickname: 'Bo', isHost: false })] }),
+    );
+    useRoomStore.getState().chatTyping('u2', true);
+    useRoomStore.getState().memberKicked('u2', 'kick');
+    const s = useRoomStore.getState();
+    expect(s.members.map((m) => m.userId)).toEqual(['u1']);
+    expect(s.typing.u2).toBeUndefined();
+    expect(s.kicked).toBeNull();
+    expect(lines().at(-1)?.key).toBe('chat.kicked');
+    expect(lines().at(-1)?.params).toEqual({ name: 'Bo' });
+  });
+
+  it('names a ban differently from a kick', () => {
+    useRoomStore.getState().applySnapshot(
+      snapshot({ members: [member(), member({ userId: 'u2', nickname: 'Bo', isHost: false })] }),
+    );
+    useRoomStore.getState().memberKicked('u2', 'ban');
+    expect(lines().at(-1)?.key).toBe('chat.banned');
+  });
+
+  it('empties the room when this client is the one removed', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    useRoomStore.getState().memberKicked('u1', 'ban');
+    const s = useRoomStore.getState();
+    expect(s.hasRoom).toBe(false);
+    expect(s.members).toHaveLength(0);
+    expect(s.kicked).toBe('ban');
+    expect(s.connection).toBe('disconnected');
+  });
+
+  it('starts the room empty for a join the server already rejected', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    useRoomStore.getState().setKicked('kick');
+    expect(useRoomStore.getState().hasRoom).toBe(false);
+    expect(useRoomStore.getState().kicked).toBe('kick');
+    useRoomStore.getState().applySnapshot(snapshot());
+    expect(useRoomStore.getState().kicked).toBeNull();
   });
 });

@@ -2,11 +2,14 @@ import bcrypt from 'bcryptjs';
 import {
   applySettings as applyTimerSettings,
   complete,
+  KICK_COOLDOWN_MS,
   LIMITS,
   pause as pauseTimer,
   reset as resetTimer,
   skip as skipTimer,
   start as startTimer,
+  type BlockedMember,
+  type BlockReason,
   type ChatMessage,
   type Member,
   type MemberStatus,
@@ -50,6 +53,7 @@ interface MemberEntry {
   status: MemberStatus;
   task: string;
   isModerator: boolean;
+  isMuted: boolean;
   joinedAt: number;
   sockets: Set<string>;
   graceTimer?: TimeoutHandle;
@@ -76,6 +80,11 @@ export class RoomRuntime {
   timer: TimerState;
 
   private readonly members = new Map<string, MemberEntry>();
+  /** Kept in memory as well as in the store, so joining needs no extra query. */
+  private readonly blocks = new Map<
+    string,
+    { nickname: string; reason: BlockReason; blockedAt: number; expiresAt: number | null }
+  >();
   private readonly store: RoomStore;
   private readonly clock: Clock;
   private readonly emitter: RuntimeEmitter;
@@ -141,6 +150,10 @@ export class RoomRuntime {
     const nickname = cleanText(input.nickname, LIMITS.NICKNAME_MAX);
     if (nickname.length < LIMITS.NICKNAME_MIN) throw new AppError('INVALID_INPUT');
 
+    const userId = publicUserId(input.clientId, this.roomId);
+    const block = this.activeBlock(userId);
+    if (block) throw new AppError(block === 'ban' ? 'BANNED' : 'KICKED');
+
     const existing = this.members.get(input.clientId);
     if (!existing && this.passwordHash) {
       const failKey = `${input.ip}:${this.code}`;
@@ -167,11 +180,12 @@ export class RoomRuntime {
     } else {
       entry = {
         clientId: input.clientId,
-        userId: publicUserId(input.clientId, this.roomId),
+        userId,
         nickname: this.dedupeNickname(nickname),
         status: 'focusing',
         task: '',
         isModerator: false,
+        isMuted: false,
         joinedAt: this.clock.now(),
         sockets: new Set([socket.id]),
       };
@@ -215,12 +229,15 @@ export class RoomRuntime {
     void this.removeMember(clientId);
   }
 
-  private async removeMember(clientId: string): Promise<void> {
+  private async removeMember(clientId: string, blocked?: BlockReason): Promise<void> {
     const entry = this.members.get(clientId);
     if (!entry) return;
     if (entry.graceTimer !== undefined) this.clock.clearTimeout(entry.graceTimer);
     this.members.delete(clientId);
-    this.emitter.toRoom('member:left', { userId: entry.userId });
+    // A removal the host ordered says who was thrown out rather than pretending
+    // they left on their own, and it is the event the removed client acts on.
+    if (blocked) this.emitter.toRoom('room:kicked', { userId: entry.userId, reason: blocked });
+    else this.emitter.toRoom('member:left', { userId: entry.userId });
 
     if (clientId === this.hostClientId && this.members.size > 0) {
       // Auto-transfer to the online member who joined earliest.
@@ -265,6 +282,7 @@ export class RoomRuntime {
 
   async sendChat(socket: RuntimeSocket, rawText: string): Promise<ChatMessage> {
     const entry = this.requireMember(socket);
+    if (entry.isMuted) throw new AppError('MUTED');
     const text = cleanText(rawText, LIMITS.MESSAGE_MAX, { keepNewlines: true });
     if (!text) throw new AppError('INVALID_INPUT');
     if (!this.chatLimiter.allow(entry.clientId)) throw new AppError('RATE_LIMITED');
@@ -291,7 +309,7 @@ export class RoomRuntime {
   setTyping(socket: RuntimeSocket, isTyping: boolean): void {
     if (!this.typingLimiter.allow(socket.id)) return; // silently drop extras
     const entry = this.members.get(socket.data.clientId ?? '');
-    if (!entry) return;
+    if (!entry || entry.isMuted) return;
     this.emitter.toRoomExcept(socket.id, 'chat:typing', { userId: entry.userId, isTyping });
   }
 
@@ -345,8 +363,7 @@ export class RoomRuntime {
   }
 
   async updateSettings(socket: RuntimeSocket, patch: Partial<RoomSettings>): Promise<RoomSettings> {
-    const entry = this.requireMember(socket);
-    if (entry.clientId !== this.hostClientId) throw new AppError('FORBIDDEN');
+    const entry = this.requireHost(socket);
 
     this.settings = { ...this.settings, ...patch };
     this.timer = applyTimerSettings(this.timer, this.settings);
@@ -366,12 +383,8 @@ export class RoomRuntime {
   }
 
   async transferHost(socket: RuntimeSocket, targetUserId: string): Promise<void> {
-    const entry = this.requireMember(socket);
-    if (entry.clientId !== this.hostClientId) throw new AppError('FORBIDDEN');
-    const target = [...this.members.values()].find(
-      (m) => m.userId === targetUserId && m.sockets.size > 0,
-    );
-    if (!target) throw new AppError('INVALID_INPUT');
+    const entry = this.requireHost(socket);
+    const target = this.findPromotable(targetUserId);
 
     // The host outranks a moderator, so the promoted member drops that flag.
     target.isModerator = false;
@@ -391,18 +404,116 @@ export class RoomRuntime {
     targetUserId: string,
     isModerator: boolean,
   ): Promise<Member> {
-    const entry = this.requireMember(socket);
-    if (entry.clientId !== this.hostClientId) throw new AppError('FORBIDDEN');
-    const target = [...this.members.values()].find(
-      (m) => m.userId === targetUserId && m.sockets.size > 0,
-    );
-    if (!target || target.clientId === this.hostClientId) throw new AppError('INVALID_INPUT');
+    this.requireHost(socket);
+    const target = this.findPromotable(targetUserId);
 
     target.isModerator = isModerator;
     this.touch();
     const member = this.toMember(target);
     this.emitter.toRoom('member:updated', member);
     return member;
+  }
+
+  /** Host-only: take away chat without removing the member from the room. */
+  setMuted(socket: RuntimeSocket, targetUserId: string, isMuted: boolean): Member {
+    this.requireHost(socket);
+    const target = this.findTarget(targetUserId);
+
+    target.isMuted = isMuted;
+    this.touch();
+    const member = this.toMember(target);
+    this.emitter.toRoom('member:updated', member);
+    return member;
+  }
+
+  /** Host-only: remove the member; they may join again after the cooldown. */
+  async kick(socket: RuntimeSocket, targetUserId: string): Promise<void> {
+    this.requireHost(socket);
+    await this.blockTarget(targetUserId, 'kick');
+  }
+
+  /** Host-only: remove the member until the host lifts the block. */
+  async ban(socket: RuntimeSocket, targetUserId: string): Promise<void> {
+    this.requireHost(socket);
+    await this.blockTarget(targetUserId, 'ban');
+  }
+
+  /** Host-only: lift a kick or ban early. */
+  async unban(socket: RuntimeSocket, targetUserId: string): Promise<void> {
+    this.requireHost(socket);
+    if (!this.blocks.delete(targetUserId)) throw new AppError('INVALID_INPUT');
+    await this.store
+      .removeBlock(this.roomId, targetUserId)
+      .catch((err) => console.error('[room] failed to lift block:', err));
+    this.touch();
+  }
+
+  /** Host-only: who is currently kept out, and until when. */
+  listBlocks(socket: RuntimeSocket): BlockedMember[] {
+    this.requireHost(socket);
+    const now = this.clock.now();
+    return [...this.blocks.entries()]
+      .filter(([, block]) => block.expiresAt === null || block.expiresAt > now)
+      .map(([userId, block]) => ({ userId, ...block }));
+  }
+
+  private async blockTarget(targetUserId: string, reason: BlockReason): Promise<void> {
+    const target = this.findTarget(targetUserId);
+    const now = this.clock.now();
+    const expiresAt = reason === 'kick' ? now + KICK_COOLDOWN_MS : null;
+    // Write the block first: the removal hands the client a fresh chance to join.
+    this.blocks.set(target.userId, {
+      nickname: target.nickname,
+      reason,
+      blockedAt: now,
+      expiresAt,
+    });
+    await this.store
+      .addBlock({
+        roomId: this.roomId,
+        userId: target.userId,
+        nickname: target.nickname,
+        reason,
+        blockedAt: now,
+        expiresAt,
+      })
+      .catch((err) => console.error('[room] failed to persist block:', err));
+    await this.removeMember(target.clientId, reason);
+  }
+
+  private activeBlock(userId: string): BlockReason | undefined {
+    const block = this.blocks.get(userId);
+    if (!block) return undefined;
+    if (block.expiresAt !== null && block.expiresAt <= this.clock.now()) {
+      this.blocks.delete(userId);
+      void this.store
+        .removeBlock(this.roomId, userId)
+        .catch((err) => console.error('[room] failed to prune kick:', err));
+      return undefined;
+    }
+    return block.reason;
+  }
+
+  /** A member who is actually in the room and not the host. */
+  private findPromotable(targetUserId: string): MemberEntry {
+    const target = [...this.members.values()].find(
+      (m) => m.userId === targetUserId && m.sockets.size > 0,
+    );
+    if (!target || target.clientId === this.hostClientId) throw new AppError('INVALID_INPUT');
+    return target;
+  }
+
+  /** Any member still on the roster, including one inside the grace period. */
+  private findTarget(targetUserId: string): MemberEntry {
+    const target = [...this.members.values()].find((m) => m.userId === targetUserId);
+    if (!target || target.clientId === this.hostClientId) throw new AppError('INVALID_INPUT');
+    return target;
+  }
+
+  private requireHost(socket: RuntimeSocket): MemberEntry {
+    const entry = this.requireMember(socket);
+    if (entry.clientId !== this.hostClientId) throw new AppError('FORBIDDEN');
+    return entry;
   }
 
   /** Phase-end scheduling: re-arm whenever the timer is running, clear otherwise. */
@@ -439,6 +550,21 @@ export class RoomRuntime {
 
   /** Boot recovery: a persisted running timer may already be past its deadline. */
   async resumeFromStored(): Promise<void> {
+    const blocks = await this.store
+      .listBlocks(this.roomId)
+      .catch((err) => {
+        console.error('[room] failed to load blocks:', err);
+        return [];
+      });
+    for (const block of blocks) {
+      this.blocks.set(block.userId, {
+        nickname: block.nickname,
+        reason: block.reason,
+        blockedAt: block.blockedAt,
+        expiresAt: block.expiresAt,
+      });
+    }
+
     if (this.timer.status === 'running' && this.timer.endsAt !== null) {
       if (this.timer.endsAt <= this.clock.now()) {
         this.timer = complete(this.timer, this.settings, this.clock.now());
@@ -489,6 +615,7 @@ export class RoomRuntime {
       task: entry.task,
       isHost: entry.clientId === this.hostClientId,
       isModerator: entry.isModerator,
+      isMuted: entry.isMuted,
       online: entry.sockets.size > 0,
       joinedAt: entry.joinedAt,
     };

@@ -3,9 +3,11 @@ import {
   chatTypingPayloadSchema,
   emptyPayloadSchema,
   joinRoomPayloadSchema,
+  memberTargetPayloadSchema,
   memberUpdatePayloadSchema,
   roomSettingsPatchSchema,
   setModeratorPayloadSchema,
+  setMutedPayloadSchema,
   timeSyncPayloadSchema,
   transferHostPayloadSchema,
   type ClientToServerEvents,
@@ -114,6 +116,32 @@ export function registerHandlers(
       handle(setModeratorPayloadSchema, (payload, s) =>
         runtimeOf(s).setModerator(s, payload.targetUserId, payload.isModerator),
       ),
+    );
+
+    socket.on(
+      'member:setMuted',
+      handle(setMutedPayloadSchema, (payload, s) =>
+        runtimeOf(s).setMuted(s, payload.targetUserId, payload.isMuted),
+      ),
+    );
+
+    const blockHandler = (action: 'kick' | 'ban') =>
+      handle(memberTargetPayloadSchema, (payload, s): Promise<EmptyPayload> =>
+        runtimeOf(s)[action](s, payload.targetUserId).then(() => ({} as EmptyPayload)),
+      );
+    socket.on('member:kick', blockHandler('kick'));
+    socket.on('member:ban', blockHandler('ban'));
+
+    socket.on(
+      'member:unban',
+      handle(memberTargetPayloadSchema, (payload, s) =>
+        runtimeOf(s).unban(s, payload.targetUserId).then(() => ({} as EmptyPayload)),
+      ),
+    );
+
+    socket.on(
+      'room:getBlocks',
+      handle(emptyPayloadSchema, (_payload, s) => runtimeOf(s).listBlocks(s)),
     );
 
     socket.on('disconnect', () => {

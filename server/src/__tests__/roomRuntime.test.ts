@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { KICK_COOLDOWN_MS } from '@studyroom/shared';
 import type { RoomSettings, TimerStateEvent } from '@studyroom/shared';
 import type { Clock, TimeoutHandle } from '../lib/clock';
 import { createMemoryStore } from '../store/memoryStore';
@@ -411,5 +412,126 @@ describe('moderators', () => {
       isHost: true,
       isModerator: false,
     });
+  });
+});
+
+describe('mute, kick and ban', () => {
+  async function hostPlusGuest(graceMs = 1_000) {
+    const ctx = await makeRuntime({}, graceMs);
+    const hostSock = fakeSocket('s1');
+    const guestSock = fakeSocket('s2');
+    await ctx.runtime.join(hostSock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    const guestSnap = await ctx.runtime.join(guestSock, {
+      nickname: 'Budi',
+      clientId: guestCid,
+      ip: '1.2.3.4',
+    });
+    return { ...ctx, hostSock, guestSock, guestUserId: guestSnap.you.userId };
+  }
+
+  it('a muted member cannot send or appear to type', async () => {
+    const { runtime, hostSock, guestSock, guestUserId } = await hostPlusGuest();
+    expect(runtime.setMuted(hostSock, guestUserId, true)).toMatchObject({ isMuted: true });
+
+    await expect(runtime.sendChat(guestSock, 'hello')).rejects.toMatchObject({ code: 'MUTED' });
+    runtime.setTyping(guestSock, true);
+    const snap = await runtime.snapshotFor(hostCid);
+    expect(snap.members.find((m) => m.userId === guestUserId)?.online).toBe(true);
+
+    await expect(runtime.sendChat(hostSock, 'still fine')).resolves.toMatchObject({ text: 'still fine' });
+    runtime.setMuted(hostSock, guestUserId, false);
+    await expect(runtime.sendChat(guestSock, 'hello again')).resolves.toBeDefined();
+  });
+
+  it('a kick removes the member at once and keeps them out for the cooldown', async () => {
+    const { runtime, clock, events, hostSock, guestSock, guestUserId } = await hostPlusGuest();
+    await runtime.kick(hostSock, guestUserId);
+    await flush();
+
+    expect(events.find((e) => e.event === 'room:kicked')).toMatchObject({
+      event: 'room:kicked',
+      args: [{ userId: guestUserId, reason: 'kick' }],
+    });
+    expect((await runtime.snapshotFor(hostCid)).members.map((m) => m.userId)).toEqual([
+      (await runtime.snapshotFor(hostCid)).hostUserId,
+    ]);
+    await expect(
+      runtime.join(fakeSocket('s3'), { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' }),
+    ).rejects.toMatchObject({ code: 'KICKED' });
+
+    clock.advance(KICK_COOLDOWN_MS);
+    await expect(
+      runtime.join(fakeSocket('s4'), { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('a ban lasts until the host lifts it, and the list explains who is out', async () => {
+    const { runtime, clock, hostSock, guestSock, guestUserId } = await hostPlusGuest();
+    await runtime.ban(hostSock, guestUserId);
+    await flush();
+
+    clock.advance(KICK_COOLDOWN_MS * 10);
+    await expect(
+      runtime.join(fakeSocket('s5'), { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' }),
+    ).rejects.toMatchObject({ code: 'BANNED' });
+
+    expect(runtime.listBlocks(hostSock)).toEqual([
+      { userId: guestUserId, nickname: 'Budi', reason: 'ban', blockedAt: expect.any(Number), expiresAt: null },
+    ]);
+
+    await runtime.unban(hostSock, guestUserId);
+    expect(runtime.listBlocks(hostSock)).toEqual([]);
+    await expect(
+      runtime.join(fakeSocket('s6'), { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('blocks survive a reload because they live in the store', async () => {
+    const { runtime, store, hostSock, guestUserId } = await hostPlusGuest();
+    await runtime.ban(hostSock, guestUserId);
+    await flush();
+
+    const blocks = await store.listBlocks(runtime.roomId);
+    expect(blocks).toEqual([
+      { userId: guestUserId, nickname: 'Budi', reason: 'ban', blockedAt: expect.any(Number), expiresAt: null },
+    ]);
+  });
+
+  it('only the host may moderate, and never the host themselves', async () => {
+    const { runtime, hostSock, guestSock } = await hostPlusGuest();
+    const hostUserId = (await runtime.snapshotFor(hostCid)).hostUserId;
+    expect(() => runtime.setMuted(guestSock, hostUserId, true)).toThrow('FORBIDDEN');
+    await expect(runtime.kick(guestSock, hostUserId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(runtime.ban(guestSock, hostUserId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(() => runtime.listBlocks(guestSock)).toThrow('FORBIDDEN');
+
+    expect(() => runtime.setMuted(hostSock, hostUserId, true)).toThrow('INVALID_INPUT');
+    await expect(runtime.kick(hostSock, hostUserId)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(runtime.ban(hostSock, 'nope')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(runtime.unban(hostSock, 'nope')).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+
+  it('a guest can be kicked while it is only reconnecting', async () => {
+    const { runtime, hostSock, guestSock, guestUserId } = await hostPlusGuest(60_000);
+    runtime.disconnectSocket(guestSock);
+    await flush();
+    expect(
+      (await runtime.snapshotFor(hostCid)).members.find((m) => m.userId === guestUserId)?.online,
+    ).toBe(false);
+    await expect(runtime.kick(hostSock, guestUserId)).resolves.toBeUndefined();
+  });
+
+  it('a mute dies with the member entry, so a rejoin starts clean', async () => {
+    const { runtime, clock, hostSock, guestSock, guestUserId } = await hostPlusGuest(500);
+    runtime.setMuted(hostSock, guestUserId, true);
+    runtime.disconnectSocket(guestSock);
+    clock.advance(600);
+    await flush();
+    const rejoined = await runtime.join(fakeSocket('s7'), {
+      nickname: 'Budi',
+      clientId: guestCid,
+      ip: '1.2.3.4',
+    });
+    expect(rejoined.members.find((m) => m.userId === guestUserId)?.isMuted).toBe(false);
   });
 });

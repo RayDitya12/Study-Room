@@ -90,6 +90,13 @@ export const setModeratorPayloadSchema = z
   .object({ targetUserId: z.string().min(1), isModerator: z.boolean() })
   .strict();
 
+export const setMutedPayloadSchema = z
+  .object({ targetUserId: z.string().min(1), isMuted: z.boolean() })
+  .strict();
+
+/** Kick, ban and unban all carry just the public id of the target. */
+export const memberTargetPayloadSchema = transferHostPayloadSchema;
+
 export const createRoomBodySchema = z
   .object({
     name: roomNameSchema,

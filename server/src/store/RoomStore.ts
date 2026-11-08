@@ -1,4 +1,4 @@
-import type { RoomSettings, TimerState } from '@studyroom/shared';
+import type { BlockReason, RoomSettings, TimerState } from '@studyroom/shared';
 
 export interface StoredRoom {
   id: string;
@@ -29,6 +29,25 @@ export interface CreateRoomInput {
   settings: RoomSettings;
 }
 
+export interface StoredBlock {
+  userId: string;
+  nickname: string;
+  reason: BlockReason;
+  blockedAt: number;
+  expiresAt: number | null;
+}
+
+export interface BlockInput {
+  roomId: string;
+  userId: string;
+  /** Display name at removal time; never used for authorisation. */
+  nickname: string;
+  reason: BlockReason;
+  /** Server epoch ms, taken from the runtime clock. */
+  blockedAt: number;
+  expiresAt: number | null;
+}
+
 export type RoomStatePatch = Partial<{
   hostClientId: string;
   settings: RoomSettings;
@@ -43,6 +62,10 @@ export interface RoomStore {
   addMessage(m: Omit<StoredMessage, 'id' | 'createdAt'> & { createdAt?: number }): Promise<StoredMessage>;
   /** Oldest first, capped at `limit`. */
   getRecentMessages(roomId: string, limit: number): Promise<StoredMessage[]>;
+  /** Replaces any existing block for the same user. */
+  addBlock(input: BlockInput): Promise<void>;
+  removeBlock(roomId: string, userId: string): Promise<void>;
+  listBlocks(roomId: string): Promise<StoredBlock[]>;
   listRunningRooms(): Promise<StoredRoom[]>;
   deleteInactiveSince(cutoffMs: number): Promise<number>;
   codeExists(code: string): Promise<boolean>;

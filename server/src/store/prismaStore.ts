@@ -8,7 +8,7 @@ import {
   type TimerState,
   type TimerStatus,
 } from '@studyroom/shared';
-import type { RoomStore, StoredMessage, StoredRoom } from './RoomStore';
+import type { RoomStore, StoredBlock, StoredMessage, StoredRoom } from './RoomStore';
 
 function toStoredRoom(row: PrismaRoom): StoredRoom {
   const settings: RoomSettings = {
@@ -148,6 +148,43 @@ export function createPrismaStore(prisma: PrismaClient): RoomStore {
         text: row.text,
         createdAt: row.createdAt.getTime(),
       }));
+    },
+
+    async addBlock(input) {
+      const blockedAt = new Date(input.blockedAt);
+      const expiresAt = input.expiresAt === null ? null : new Date(input.expiresAt);
+      await prisma.roomBlock.upsert({
+        where: { roomId_userId: { roomId: input.roomId, userId: input.userId } },
+        update: { nickname: input.nickname, reason: input.reason, blockedAt, expiresAt },
+        create: {
+          roomId: input.roomId,
+          userId: input.userId,
+          nickname: input.nickname,
+          reason: input.reason,
+          blockedAt,
+          expiresAt,
+        },
+      });
+    },
+
+    async removeBlock(roomId, userId) {
+      await prisma.roomBlock.deleteMany({ where: { roomId, userId } });
+    },
+
+    async listBlocks(roomId) {
+      const rows = await prisma.roomBlock.findMany({
+        where: { roomId },
+        orderBy: { blockedAt: 'asc' },
+      });
+      return rows.map(
+        (row): StoredBlock => ({
+          userId: row.userId,
+          nickname: row.nickname,
+          reason: row.reason === 'kick' ? 'kick' : 'ban',
+          blockedAt: row.blockedAt.getTime(),
+          expiresAt: row.expiresAt === null ? null : row.expiresAt.getTime(),
+        }),
+      );
     },
 
     async listRunningRooms() {

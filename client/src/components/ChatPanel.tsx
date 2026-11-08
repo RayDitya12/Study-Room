@@ -16,6 +16,9 @@ export function ChatPanel({ onSend, onTyping }: ChatPanelProps) {
   const t = useT();
   const messages = useRoomStore((s) => s.messages);
   const youUserId = useRoomStore((s) => s.youUserId);
+  const isMuted = useRoomStore(
+    (s) => s.members.some((m) => m.userId === s.youUserId && m.isMuted),
+  );
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -77,7 +80,10 @@ export function ChatPanel({ onSend, onTyping }: ChatPanelProps) {
       </div>
 
       <TypingIndicator />
-      <ChatInput disabled={!hasRoom} onSend={onSend} onTyping={onTyping} />
+      {isMuted ? (
+        <p className="px-1 text-xs text-red">{t('chat.mutedHint')}</p>
+      ) : null}
+      <ChatInput disabled={!hasRoom || isMuted} onSend={onSend} onTyping={onTyping} />
     </section>
   );
 }
