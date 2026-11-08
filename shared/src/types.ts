@@ -33,6 +33,8 @@ export interface Member {
   /** '' if none, max 80 chars. */
   task: string;
   isHost: boolean;
+  /** Timer control without host rights; always false for the host itself. */
+  isModerator: boolean;
   online: boolean;
   joinedAt: number;
 }

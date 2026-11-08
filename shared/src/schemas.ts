@@ -86,6 +86,10 @@ export const memberUpdatePayloadSchema = z
 
 export const transferHostPayloadSchema = z.object({ targetUserId: z.string().min(1) }).strict();
 
+export const setModeratorPayloadSchema = z
+  .object({ targetUserId: z.string().min(1), isModerator: z.boolean() })
+  .strict();
+
 export const createRoomBodySchema = z
   .object({
     name: roomNameSchema,

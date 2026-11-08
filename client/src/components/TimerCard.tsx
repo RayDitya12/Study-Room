@@ -23,6 +23,9 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   const settings = useRoomStore((s) => s.settings);
   const youUserId = useRoomStore((s) => s.youUserId);
   const hostUserId = useRoomStore((s) => s.hostUserId);
+  const isModerator = useRoomStore(
+    (s) => s.members.find((m) => m.userId === s.youUserId)?.isModerator === true,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -30,7 +33,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   if (!timer || !settings) return null;
 
   const isHost = youUserId === hostUserId;
-  const canControl = isHost || settings.timerControl === 'everyone';
+  const canControl = isHost || isModerator || settings.timerControl === 'everyone';
   const remainingMs = getRemainingMs(timer, serverNowEstimate());
   const progress =
     timer.phaseDurationMs > 0 ? 1 - remainingMs / timer.phaseDurationMs : 0;

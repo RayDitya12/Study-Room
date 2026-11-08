@@ -329,3 +329,87 @@ describe('timer permissions', () => {
     expect(state.status).toBe('running');
   });
 });
+
+describe('moderators', () => {
+  async function hostPlusGuest() {
+    const ctx = await makeRuntime();
+    const hostSock = fakeSocket('s1');
+    const guestSock = fakeSocket('s2');
+    await ctx.runtime.join(hostSock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    const guestSnap = await ctx.runtime.join(guestSock, {
+      nickname: 'Budi',
+      clientId: guestCid,
+      ip: '1.2.3.4',
+    });
+    return { ...ctx, hostSock, guestSock, guestUserId: guestSnap.you.userId };
+  }
+
+  it('a moderator may control the timer, and losing the flag takes that away', async () => {
+    const { runtime, guestSock, guestUserId, hostSock } = await hostPlusGuest();
+    await expect(runtime.timerAction(guestSock, 'start')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const promoted = await runtime.setModerator(hostSock, guestUserId, true);
+    expect(promoted).toMatchObject({ isModerator: true, isHost: false });
+    expect((await runtime.timerAction(guestSock, 'start')).status).toBe('running');
+
+    await runtime.setModerator(hostSock, guestUserId, false);
+    await expect(runtime.timerAction(guestSock, 'pause')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('broadcasts member:updated so everyone sees the new role', async () => {
+    const { runtime, events, hostSock, guestUserId } = await hostPlusGuest();
+    await runtime.setModerator(hostSock, guestUserId, true);
+    const updates = events.filter((e) => e.event === 'member:updated');
+    expect(updates.at(-1)?.args[0]).toMatchObject({ userId: guestUserId, isModerator: true });
+  });
+
+  it('only the host can appoint a moderator, and the host is never the target', async () => {
+    const { runtime, guestSock, hostSock } = await hostPlusGuest();
+    const hostUserId = (await runtime.snapshotFor(hostCid)).hostUserId;
+    await expect(
+      runtime.setModerator(guestSock, hostUserId, true),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      runtime.setModerator(hostSock, hostUserId, true),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(runtime.setModerator(hostSock, 'nope', true)).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+    });
+  });
+
+  it('a moderator still cannot change settings or hand over the host', async () => {
+    const { runtime, guestSock, guestUserId, hostSock } = await hostPlusGuest();
+    await runtime.setModerator(hostSock, guestUserId, true);
+    await expect(
+      runtime.updateSettings(guestSock, { focusMin: 2 }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(runtime.transferHost(guestSock, guestUserId)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('becoming host drops the moderator flag', async () => {
+    const { runtime, events, guestUserId, hostSock } = await hostPlusGuest();
+    await runtime.setModerator(hostSock, guestUserId, true);
+    await runtime.transferHost(hostSock, guestUserId);
+    const updates = events.filter((e) => e.event === 'member:updated');
+    expect(updates.at(-1)?.args[0]).toMatchObject({
+      userId: guestUserId,
+      isHost: true,
+      isModerator: false,
+    });
+  });
+
+  it('an auto host transfer also drops the moderator flag', async () => {
+    const { runtime, hostSock, guestUserId } = await hostPlusGuest();
+    await runtime.setModerator(hostSock, guestUserId, true);
+    runtime.leave(hostSock);
+    await flush();
+    expect(runtime.hostClientId).toBe(guestCid);
+    const snap = await runtime.snapshotFor(guestCid);
+    expect(snap.members.find((m) => m.userId === guestUserId)).toMatchObject({
+      isHost: true,
+      isModerator: false,
+    });
+  });
+});

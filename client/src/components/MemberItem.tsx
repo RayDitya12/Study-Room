@@ -30,11 +30,19 @@ export interface MemberItemProps {
   isYou: boolean;
   canManageHost: boolean;
   onMakeHost: (userId: string) => void;
+  onSetModerator: (userId: string, isModerator: boolean) => void;
 }
 
-export function MemberItem({ member, isYou, canManageHost, onMakeHost }: MemberItemProps) {
+export function MemberItem({
+  member,
+  isYou,
+  canManageHost,
+  onMakeHost,
+  onSetModerator,
+}: MemberItemProps) {
   const t = useT();
-  const showMakeHost = canManageHost && member.online && !member.isHost;
+  const isModerator = member.isModerator && !member.isHost;
+  const showRoleActions = canManageHost && member.online && !member.isHost;
 
   return (
     <li
@@ -74,6 +82,18 @@ export function MemberItem({ member, isYou, canManageHost, onMakeHost }: MemberI
               <path d="M3 8l4.5 3L12 4l4.5 7L21 8l-1.8 9H4.8L3 8zm2.6 11h12.8v1.6H5.6V19z" />
             </svg>
           ) : null}
+          {isModerator ? (
+            <svg
+              aria-label={t('members.moderator')}
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="shrink-0 text-subtext1"
+            >
+              <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" />
+            </svg>
+          ) : null}
           <span className="truncate text-sm font-medium text-text" title={member.nickname}>
             {member.nickname}
           </span>
@@ -98,18 +118,33 @@ export function MemberItem({ member, isYou, canManageHost, onMakeHost }: MemberI
         )}
       </div>
 
-      {showMakeHost ? (
-        <button
-          type="button"
-          onClick={() => onMakeHost(member.userId)}
-          aria-label={t('members.makeHost')}
-          title={t('members.makeHost')}
-          className="shrink-0 rounded-lg p-1.5 text-subtext0 opacity-0 transition-opacity hover:bg-surface0 hover:text-text focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 8l4.5 3L12 4l4.5 7L21 8l-1.8 9H4.8L3 8z" />
-          </svg>
-        </button>
+      {showRoleActions ? (
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity max-lg:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => onSetModerator(member.userId, !member.isModerator)}
+            aria-label={t(member.isModerator ? 'members.removeModerator' : 'members.makeModerator')}
+            title={t(member.isModerator ? 'members.removeModerator' : 'members.makeModerator')}
+            className={`rounded-lg p-1.5 transition-colors hover:bg-surface0 hover:text-text ${
+              member.isModerator ? 'text-subtext1' : 'text-subtext0'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3l7 2.6v5.2c0 4.3-2.9 8.1-7 9.5-4.1-1.4-7-5.2-7-9.5V5.6L12 3z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => onMakeHost(member.userId)}
+            aria-label={t('members.makeHost')}
+            title={t('members.makeHost')}
+            className="rounded-lg p-1.5 text-subtext0 transition-colors hover:bg-surface0 hover:text-text"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8l4.5 3L12 4l4.5 7L21 8l-1.8 9H4.8L3 8z" />
+            </svg>
+          </button>
+        </div>
       ) : null}
     </li>
   );

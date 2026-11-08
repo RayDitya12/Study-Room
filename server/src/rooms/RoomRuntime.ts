@@ -49,6 +49,7 @@ interface MemberEntry {
   nickname: string;
   status: MemberStatus;
   task: string;
+  isModerator: boolean;
   joinedAt: number;
   sockets: Set<string>;
   graceTimer?: TimeoutHandle;
@@ -170,6 +171,7 @@ export class RoomRuntime {
         nickname: this.dedupeNickname(nickname),
         status: 'focusing',
         task: '',
+        isModerator: false,
         joinedAt: this.clock.now(),
         sockets: new Set([socket.id]),
       };
@@ -227,6 +229,7 @@ export class RoomRuntime {
         .sort((a, b) => a.joinedAt - b.joinedAt);
       const next = candidates[0];
       if (next) {
+        next.isModerator = false;
         this.hostClientId = next.clientId;
         await this.store
           .saveRoomState(this.roomId, { hostClientId: next.clientId, lastActiveAt: this.clock.now() })
@@ -307,7 +310,9 @@ export class RoomRuntime {
   // ---------- timer ----------
 
   canControlTimer(clientId: string): boolean {
-    return this.settings.timerControl === 'everyone' || clientId === this.hostClientId;
+    if (this.settings.timerControl === 'everyone') return true;
+    if (clientId === this.hostClientId) return true;
+    return this.members.get(clientId)?.isModerator === true;
   }
 
   async timerAction(socket: RuntimeSocket, action: TimerAction): Promise<TimerState> {
@@ -368,6 +373,8 @@ export class RoomRuntime {
     );
     if (!target) throw new AppError('INVALID_INPUT');
 
+    // The host outranks a moderator, so the promoted member drops that flag.
+    target.isModerator = false;
     this.hostClientId = target.clientId;
     await this.store
       .saveRoomState(this.roomId, { hostClientId: target.clientId, lastActiveAt: this.clock.now() })
@@ -376,6 +383,26 @@ export class RoomRuntime {
     this.emitter.toRoom('member:updated', this.toMember(entry));
     this.emitter.toRoom('member:updated', this.toMember(target));
     this.touch();
+  }
+
+  /** Host-only: grant or revoke timer control without handing over the room. */
+  async setModerator(
+    socket: RuntimeSocket,
+    targetUserId: string,
+    isModerator: boolean,
+  ): Promise<Member> {
+    const entry = this.requireMember(socket);
+    if (entry.clientId !== this.hostClientId) throw new AppError('FORBIDDEN');
+    const target = [...this.members.values()].find(
+      (m) => m.userId === targetUserId && m.sockets.size > 0,
+    );
+    if (!target || target.clientId === this.hostClientId) throw new AppError('INVALID_INPUT');
+
+    target.isModerator = isModerator;
+    this.touch();
+    const member = this.toMember(target);
+    this.emitter.toRoom('member:updated', member);
+    return member;
   }
 
   /** Phase-end scheduling: re-arm whenever the timer is running, clear otherwise. */
@@ -461,6 +488,7 @@ export class RoomRuntime {
       status: entry.status,
       task: entry.task,
       isHost: entry.clientId === this.hostClientId,
+      isModerator: entry.isModerator,
       online: entry.sockets.size > 0,
       joinedAt: entry.joinedAt,
     };

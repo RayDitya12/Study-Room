@@ -33,6 +33,7 @@ export interface RoomActions {
   timerAction: (action: TimerAction) => Promise<void>;
   updateSettings: (patch: Partial<RoomSettings>) => Promise<boolean>;
   transferHost: (targetUserId: string) => Promise<void>;
+  setModerator: (targetUserId: string, isModerator: boolean) => Promise<void>;
 }
 
 const ACK_TIMEOUT_MS = 10_000;
@@ -232,6 +233,12 @@ export function useRoomConnection(code: string): {
       transferHost: async (targetUserId) => {
         const res = await request<EmptyPayload>((socket, cb) =>
           socket.emit('room:transferHost', { targetUserId }, cb),
+        );
+        if (!res.ok) notifyError(res.error);
+      },
+      setModerator: async (targetUserId, isModerator) => {
+        const res = await request<Member>((socket, cb) =>
+          socket.emit('member:setModerator', { targetUserId, isModerator }, cb),
         );
         if (!res.ok) notifyError(res.error);
       },

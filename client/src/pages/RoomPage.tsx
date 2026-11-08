@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getRemainingMs } from '@studyroom/shared';
 import { getRoomMeta, type RoomMeta } from '../lib/api';
 import { serverNowEstimate } from '../lib/clock';
+import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useNow } from '../hooks/useNow';
@@ -80,12 +81,8 @@ export function RoomPage() {
   useDocumentTitle(documentTitle);
 
   const copyLink = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/r/${code}`);
-      pushToast(t('toasts.linkCopied'));
-    } catch {
-      pushToast(t('errors.INTERNAL'));
-    }
+    const ok = await copyText(`${window.location.origin}/r/${code}`);
+    pushToast(t(ok ? 'toasts.linkCopied' : 'toasts.copyFailed'));
   };
 
   const submitJoin = async (nickname: string, password?: string): Promise<void> => {
@@ -151,6 +148,7 @@ export function RoomPage() {
             <MemberList
               onUpdateMember={(patch) => void actions.updateMember(patch)}
               onTransferHost={(userId) => void actions.transferHost(userId)}
+              onSetModerator={(userId, isModerator) => void actions.setModerator(userId, isModerator)}
             />
           </div>
         </div>

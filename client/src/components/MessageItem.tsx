@@ -1,7 +1,16 @@
+import type { Member } from '@studyroom/shared';
 import type { MessageItem as MessageItemModel } from '../stores/roomStore';
 import { formatClockTime } from '../lib/format';
 import { usePrefsStore } from '../stores/prefsStore';
+import { useRoomStore } from '../stores/roomStore';
 import { useT } from '../i18n/useT';
+
+/** Host names are gold, moderators silver, everyone else the accent colour. */
+export function nameColor(member: Member | undefined): string {
+  if (member?.isHost) return 'text-yellow';
+  if (member?.isModerator) return 'text-subtext1';
+  return 'text-mauve';
+}
 
 export interface MessageItemProps {
   item: MessageItemModel;
@@ -11,6 +20,8 @@ export interface MessageItemProps {
 export function MessageItem({ item, youUserId }: MessageItemProps) {
   const t = useT();
   const lang = usePrefsStore((s) => s.lang);
+  const senderId = item.kind === 'chat' ? item.message.userId : '';
+  const color = useRoomStore((s) => nameColor(s.members.find((m) => m.userId === senderId)));
 
   if (item.kind === 'system') {
     const params = item.phase
@@ -30,7 +41,7 @@ export function MessageItem({ item, youUserId }: MessageItemProps) {
         }`}
       >
         {!own ? (
-          <p className="mb-0.5 text-xs font-medium text-mauve">{item.message.nickname}</p>
+          <p className={`mb-0.5 text-xs font-medium ${color}`}>{item.message.nickname}</p>
         ) : null}
         <p className="whitespace-pre-wrap break-words text-sm">{item.message.text}</p>
       </div>

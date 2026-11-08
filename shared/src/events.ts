@@ -28,6 +28,11 @@ export interface TimerStateEvent {
   by?: string;
 }
 
+export interface SetModeratorPayload {
+  targetUserId: string;
+  isModerator: boolean;
+}
+
 export interface ClientToServerEvents {
   'time:sync': (payload: TimeSyncPayload, ack: (res: Ack<TimeSyncResult>) => void) => void;
   'room:join': (
@@ -53,6 +58,7 @@ export interface ClientToServerEvents {
     payload: { targetUserId: string },
     ack: (res: Ack<EmptyPayload>) => void,
   ) => void;
+  'member:setModerator': (payload: SetModeratorPayload, ack: (res: Ack<Member>) => void) => void;
 }
 
 export interface ServerToClientEvents {

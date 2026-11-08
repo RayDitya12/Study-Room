@@ -10,7 +10,7 @@ waiting for you.
 
 - Rooms by code or link (`/r/:CODE`), optional password, max 30 members
 - Shared timer: focus / break / long break, configurable durations, cycles before long break,
-  optional auto-start, host-only or everyone-can-control
+  optional auto-start, controlled by the host, host-appointed moderators, or everyone
 - Presence that survives a refresh: grace period, multi-tab as one member, automatic host transfer
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
@@ -65,6 +65,13 @@ session.
 **Host transfer.** The host can transfer the role to any online member. If the host leaves or drops
 past the grace period, the role goes automatically to the online member with the smallest
 `joinedAt`, and the new state is persisted before `room:hostChanged` is broadcast.
+
+**Moderators.** There is always exactly one host, but the host can hand out a lower tier: the shield
+icon on a member row makes that member a moderator. A moderator may drive the timer — start, pause,
+reset, skip — and nothing else: room settings, role changes and the host transfer stay host-only, and
+every one of those checks is enforced on the server, not just hidden in the UI. Promoting a moderator
+to host clears the flag. In chat the host's name is gold and a moderator's is silver. The flag lives
+with the member's presence, so like status and task it is not persisted across a server restart.
 
 **Identity model.** The browser generates one `clientId` (UUID v4) and keeps it in `localStorage`.
 It is a secret: it is sent only to the server on join and is never broadcast. Everything other users
@@ -165,13 +172,13 @@ npm test
 - **server unit** — text sanitizing, the token-bucket and failure rate limiters (fake clock), id
   generation, REST routes, and `RoomRuntime` with a fake clock: phase auto-advance, auto-start
   chaining, grace removal, reconnect cancelling grace, host transfer, empty-room pause, nickname
-  de-duplication, timer permissions, boot recovery.
+  de-duplication, timer permissions, moderator appointments, boot recovery.
 - **server integration** — the real HTTP + Socket.io server on a random port with two
   `socket.io-client` instances: presence, chat, passwords, permissions, grace/reconnect, host
-  transfer, rate limits, `time:sync`.
+  transfer, moderators, rate limits, `time:sync`.
 - **client** — i18n key/placeholder parity between `en` and `id`, `formatRemaining`, clock-offset
-  selection, and the room store (snapshot replacement, system lines, out-of-order timer versions,
-  typing expiry).
+  selection, chat name colours per role, and the room store (snapshot replacement, system lines,
+  out-of-order timer versions, typing expiry).
 
 ## Windows / PowerShell notes
 

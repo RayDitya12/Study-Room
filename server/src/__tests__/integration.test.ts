@@ -290,6 +290,68 @@ describe('6. host transfer', () => {
   });
 });
 
+describe('6b. moderators', () => {
+  it('the host appoints a moderator who may then drive the timer', async () => {
+    const hostCid = cid();
+    const guestCid = cid();
+    const code = await server.createRoom({ name: 'Mod room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: guestCid });
+
+    expect((await emitAck<TimerState>(b, 'timer:start', {}))).toEqual({
+      ok: false,
+      error: 'FORBIDDEN',
+    });
+
+    const updatedOnB = nextEvent<Member>(b, 'member:updated');
+    const ack = await emitAck<Member>(a, 'member:setModerator', {
+      targetUserId: snapB.you.userId,
+      isModerator: true,
+    });
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) return;
+    expect(ack.data).toMatchObject({ userId: snapB.you.userId, isModerator: true, isHost: false });
+    expect(await updatedOnB).toMatchObject({ isModerator: true });
+
+    expect((await emitAck<TimerState>(b, 'timer:start', {})).ok).toBe(true);
+    // Timer control only: settings stay host-only.
+    expect(await emitAck<RoomSettings>(b, 'room:updateSettings', { focusMin: 30 })).toEqual({
+      ok: false,
+      error: 'FORBIDDEN',
+    });
+  });
+
+  it('rejects setModerator from a non-host and bad payloads', async () => {
+    const hostCid = cid();
+    const code = await server.createRoom({ name: 'Mod guard', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    const snapA = await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    await joinRoom(b, { code, nickname: 'Budi', clientId: cid() });
+
+    expect(
+      await emitAck<Member>(b, 'member:setModerator', {
+        targetUserId: snapA.you.userId,
+        isModerator: true,
+      }),
+    ).toEqual({ ok: false, error: 'FORBIDDEN' });
+
+    expect(
+      await emitAck<Member>(a, 'member:setModerator', {
+        targetUserId: snapA.you.userId,
+        isModerator: true,
+      }),
+    ).toEqual({ ok: false, error: 'INVALID_INPUT' });
+
+    expect(await emitAck<Member>(a, 'member:setModerator', { targetUserId: 'x' })).toEqual({
+      ok: false,
+      error: 'INVALID_INPUT',
+    });
+  });
+});
+
 describe('7. chat validation + rate limit', () => {
   it('rejects messages over 500 chars', async () => {
     const code = await server.createRoom({ name: 'Limits room', clientId: cid() });

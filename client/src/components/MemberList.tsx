@@ -17,9 +17,10 @@ export function sortMembers(members: Member[]): Member[] {
 export interface MemberListProps {
   onUpdateMember: (patch: { status?: MemberStatus; task?: string }) => void;
   onTransferHost: (userId: string) => void;
+  onSetModerator: (userId: string, isModerator: boolean) => void;
 }
 
-export function MemberList({ onUpdateMember, onTransferHost }: MemberListProps) {
+export function MemberList({ onUpdateMember, onTransferHost, onSetModerator }: MemberListProps) {
   const t = useT();
   const members = useRoomStore((s) => s.members);
   const youUserId = useRoomStore((s) => s.youUserId);
@@ -44,6 +45,7 @@ export function MemberList({ onUpdateMember, onTransferHost }: MemberListProps) 
             isYou={member.userId === youUserId}
             canManageHost={youUserId === hostUserId}
             onMakeHost={onTransferHost}
+            onSetModerator={onSetModerator}
           />
         ))}
       </ul>

@@ -5,6 +5,7 @@ import {
   joinRoomPayloadSchema,
   memberUpdatePayloadSchema,
   roomSettingsPatchSchema,
+  setModeratorPayloadSchema,
   timeSyncPayloadSchema,
   transferHostPayloadSchema,
   type ClientToServerEvents,
@@ -105,6 +106,13 @@ export function registerHandlers(
       'room:transferHost',
       handle(transferHostPayloadSchema, (payload, s) =>
         runtimeOf(s).transferHost(s, payload.targetUserId).then(() => ({} as EmptyPayload)),
+      ),
+    );
+
+    socket.on(
+      'member:setModerator',
+      handle(setModeratorPayloadSchema, (payload, s) =>
+        runtimeOf(s).setModerator(s, payload.targetUserId, payload.isModerator),
       ),
     );
 
