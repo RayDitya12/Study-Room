@@ -70,7 +70,7 @@ export function ChatInput({ disabled, onSend, onTyping }: ChatInputProps) {
               void submit();
             }
           }}
-          className="max-h-32 min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text placeholder:text-overlay0 focus:outline-none"
+          className="max-h-32 min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text placeholder:text-subtext0 focus:outline-none"
         />
         <button
           type="button"

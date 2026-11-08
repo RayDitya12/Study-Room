@@ -60,6 +60,13 @@ html[data-theme="latte"] {
   --ctp-crust: #dcdfe5;
 }
 
+/* A locally installed JetBrainsMono Nerd Font wins over the bundled webfont,
+   so icon glyphs from the patched variant still render. */
+:root {
+  --app-font: "JetBrainsMono Nerd Font", "JetBrainsMono Nerd Font Mono",
+    "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+}
+
 @theme inline {
   --color-base: var(--ctp-base);
   --color-mantle: var(--ctp-mantle);
@@ -81,14 +88,14 @@ html[data-theme="latte"] {
   --color-teal: var(--ctp-teal);
   --color-pink: var(--ctp-pink);
   --color-lavender: var(--ctp-lavender);
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+  --font-sans: var(--app-font);
+  --font-mono: var(--app-font);
 }
 
 body {
   background: var(--ctp-base);
   color: var(--ctp-text);
-  font-family: var(--font-sans);
+  font-family: var(--app-font);
   min-height: 100dvh;
 }
 

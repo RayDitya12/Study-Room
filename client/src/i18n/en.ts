@@ -154,7 +154,6 @@ export const en = {
     label: 'Theme',
     light: 'Light',
     dark: 'Dark',
-    system: 'System',
   },
   language: {
     label: 'Language',

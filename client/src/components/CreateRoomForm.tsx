@@ -7,7 +7,7 @@ import { useT } from '../i18n/useT';
 import { Button } from './Button';
 
 const inputClass =
-  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none';
+  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none';
 
 export function CreateRoomForm() {
   const t = useT();

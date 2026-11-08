@@ -156,7 +156,6 @@ export const id: Messages = {
     label: 'Tema',
     light: 'Terang',
     dark: 'Gelap',
-    system: 'Sistem',
   },
   language: {
     label: 'Bahasa',

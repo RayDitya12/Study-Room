@@ -56,7 +56,7 @@ export function TaskInput({ value, onChange }: TaskInputProps) {
           flush(e.currentTarget.value);
         }
       }}
-      className="w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none"
+      className="w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none"
     />
   );
 }

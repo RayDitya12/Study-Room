@@ -16,7 +16,10 @@ waiting for you.
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
 - Phase-change chime generated with WebAudio (no audio files), sound toggle
-- Catppuccin themes: Mocha (dark) and Latte (light), flash-free, follows the system by default
+- Catppuccin themes: Mocha (dark) and Latte (light), flash-free; the system setting decides the first
+  run and the toggle only ever switches between those two
+- JetBrains Mono across the whole UI: a locally installed JetBrainsMono Nerd Font is used when present,
+  otherwise a bundled subset webfont (~40 kB for latin) is served
 - English and Indonesian, switchable at runtime
 
 ## Screenshots

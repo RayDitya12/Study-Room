@@ -9,7 +9,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { SoundToggle } from '../components/SoundToggle';
 
 const inputClass =
-  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none';
+  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none';
 
 export function Home() {
   const t = useT();
@@ -45,12 +45,12 @@ export function Home() {
         </div>
         <div className="grid w-full gap-6 md:grid-cols-2">
           <section className="rounded-2xl border border-surface1 bg-mantle p-6">
-            <h3 className="text-base font-semibold">{t('home.createTitle')}</h3>
+            <h3 className="text-[1rem] font-semibold text-text">{t('home.createTitle')}</h3>
             <p className="mb-4 mt-1 text-sm text-subtext0">{t('home.createDescription')}</p>
             <CreateRoomForm />
           </section>
           <section className="rounded-2xl border border-surface1 bg-mantle p-6">
-            <h3 className="text-base font-semibold">{t('home.joinTitle')}</h3>
+            <h3 className="text-[1rem] font-semibold text-text">{t('home.joinTitle')}</h3>
             <p className="mb-4 mt-1 text-sm text-subtext0">{t('home.joinDescription')}</p>
             <form onSubmit={onJoin} className="flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-sm text-subtext0">
