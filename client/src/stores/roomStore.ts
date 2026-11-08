@@ -205,7 +205,11 @@ export const useRoomStore = create<RoomState>()((set) => ({
   hostChanged: (hostUserId) =>
     set((s) => {
       const target = s.members.find((m) => m.userId === hostUserId);
-      const members = s.members.map((m) => ({ ...m, isHost: m.userId === hostUserId }));
+      // The role badge is derived here too, exactly like the server derives it.
+      const members = s.members.map<Member>((m) => {
+        const isHost = m.userId === hostUserId;
+        return { ...m, isHost, role: isHost ? 'host' : m.isModerator ? 'mod' : 'member' };
+      });
       return {
         hostUserId,
         members,

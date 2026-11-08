@@ -74,6 +74,7 @@ const baseSettings: RoomSettings = {
   cyclesBeforeLong: 2,
   autoStart: false,
   timerControl: 'host',
+  strictFocus: false,
 };
 
 interface TestContext {
@@ -411,6 +412,74 @@ describe('moderators', () => {
     expect(snap.members.find((m) => m.userId === guestUserId)).toMatchObject({
       isHost: true,
       isModerator: false,
+    });
+  });
+
+  it('reports every member through a single role field', async () => {
+    const { runtime, hostSock, guestUserId } = await hostPlusGuest();
+    const otherCid = randomUUID();
+    await runtime.join(fakeSocket('s3'), { nickname: 'Cathy', clientId: otherCid, ip: '1.2.3.4' });
+    await runtime.setModerator(hostSock, guestUserId, true);
+    const snap = await runtime.snapshotFor(otherCid);
+    const roleOf = new Map(snap.members.map((m) => [m.userId, m.role]));
+    expect(roleOf.get(snap.hostUserId)).toBe('host');
+    expect(roleOf.get(guestUserId)).toBe('mod');
+    expect(roleOf.get(snap.you.userId)).toBe('member');
+  });
+
+  it('a moderator keeps timer control after the room is reloaded from the store', async () => {
+    const { runtime, store, clock, hostSock, guestUserId } = await hostPlusGuest();
+    await runtime.setModerator(hostSock, guestUserId, true);
+    await flush();
+    const stored = await store.getByCode('ABC234');
+    if (!stored) throw new Error('room disappeared');
+    expect(stored.modClientIds).toEqual([guestCid]);
+
+    const reloaded = new RoomRuntime({
+      stored,
+      store,
+      clock,
+      emitter: createRecordingEmitter().emitter,
+      presenceGraceMs: 1_000,
+      maxMembers: 30,
+    });
+    const sock = fakeSocket('s9');
+    await reloaded.join(sock, { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' });
+    const snap = await reloaded.snapshotFor(guestCid);
+    expect(snap.members.find((m) => m.userId === guestUserId)?.role).toBe('mod');
+    expect((await reloaded.timerAction(sock, 'start')).status).toBe('running');
+  });
+});
+
+describe('media state carried by the room', () => {
+  it('a fresh room has no video and is stopped', async () => {
+    const { runtime } = await makeRuntime();
+    await runtime.join(fakeSocket('s1'), { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    const snap = await runtime.snapshotFor(hostCid);
+    expect(snap.media).toMatchObject({ videoId: null, status: 'stopped', anchorPositionMs: 0 });
+  });
+
+  it('a stored video comes back paused at the top, never playing', async () => {
+    const ctx = await makeRuntime();
+    await ctx.store.saveRoomState(ctx.runtime.roomId, {
+      mediaVideoId: 'dQw4w9WgXcQ',
+      mediaLoop: true,
+    });
+    const stored = await ctx.store.getByCode('ABC234');
+    if (!stored) throw new Error('room disappeared');
+    const reloaded = new RoomRuntime({
+      stored,
+      store: ctx.store,
+      clock: ctx.clock,
+      emitter: createRecordingEmitter().emitter,
+      presenceGraceMs: 1_000,
+      maxMembers: 30,
+    });
+    expect(reloaded.media).toMatchObject({
+      videoId: 'dQw4w9WgXcQ',
+      status: 'paused',
+      loop: true,
+      anchorPositionMs: 0,
     });
   });
 });

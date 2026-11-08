@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { LIMITS, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, STATUSES, TIMER_CONTROLS } from './constants';
+import {
+  LIMITS,
+  MAX_SEEK_MS,
+  MEDIA,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+  STATUSES,
+  TIMER_CONTROLS,
+} from './constants';
 
 export const nicknameSchema = z
   .string()
@@ -36,6 +44,8 @@ export const roomSettingsSchema = z
     cyclesBeforeLong: z.number().int().min(LIMITS.CYCLES[0]).max(LIMITS.CYCLES[1]),
     autoStart: z.boolean(),
     timerControl: z.enum(TIMER_CONTROLS),
+    /** The host asks everyone to join focus tracking; nobody is forced. */
+    strictFocus: z.boolean(),
   })
   .strict();
 
@@ -53,6 +63,7 @@ export const roomSettingsInputSchema = z
     cyclesBeforeLong: z.number().int().min(LIMITS.CYCLES[0]).max(LIMITS.CYCLES[1]).default(4),
     autoStart: z.boolean().default(false),
     timerControl: z.enum(TIMER_CONTROLS).default('host'),
+    strictFocus: z.boolean().default(false),
   })
   .strict();
 
@@ -96,6 +107,23 @@ export const setMutedPayloadSchema = z
 
 /** Kick, ban and unban all carry just the public id of the target. */
 export const memberTargetPayloadSchema = transferHostPayloadSchema;
+
+/** Raw link or bare id; the server parses it and only ever stores the id. */
+export const mediaSetPayloadSchema = z
+  .object({ url: z.string().trim().min(1).max(MEDIA.URL_MAX) })
+  .strict();
+
+export const mediaSeekPayloadSchema = z
+  .object({
+    positionMs: z.number().int().min(0).max(MAX_SEEK_MS),
+  })
+  .strict();
+
+export const mediaLoopPayloadSchema = z.object({ loop: z.boolean() }).strict();
+
+export const focusSetTrackingPayloadSchema = z.object({ enabled: z.boolean() }).strict();
+
+export const focusStatePayloadSchema = z.object({ away: z.boolean() }).strict();
 
 export const createRoomBodySchema = z
   .object({

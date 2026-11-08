@@ -19,6 +19,7 @@ const baseSettings: RoomSettings = {
   cyclesBeforeLong: 4,
   autoStart: false,
   timerControl: 'host',
+  strictFocus: false,
 };
 
 const settings = (overrides: Partial<RoomSettings> = {}): RoomSettings => ({

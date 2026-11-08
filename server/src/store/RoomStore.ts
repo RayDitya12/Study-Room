@@ -8,6 +8,11 @@ export interface StoredRoom {
   hostClientId: string;
   settings: RoomSettings;
   timer: TimerState;
+  /** Moderators are keyed by clientId so the tier survives a restart. */
+  modClientIds: string[];
+  /** Only the video id is persisted; the playhead is not. */
+  mediaVideoId: string | null;
+  mediaLoop: boolean;
   createdAt: number;
   lastActiveAt: number;
 }
@@ -52,6 +57,9 @@ export type RoomStatePatch = Partial<{
   hostClientId: string;
   settings: RoomSettings;
   timer: TimerState;
+  modClientIds: string[];
+  mediaVideoId: string | null;
+  mediaLoop: boolean;
   lastActiveAt: number;
 }>;
 

@@ -18,6 +18,7 @@ function toStoredRoom(row: PrismaRoom): StoredRoom {
     cyclesBeforeLong: row.cyclesBeforeLong,
     autoStart: row.autoStart,
     timerControl: row.timerControl as TimerControl,
+    strictFocus: row.strictFocus,
   };
   const timer: TimerState = {
     phase: row.timerPhase as TimerPhase,
@@ -36,6 +37,9 @@ function toStoredRoom(row: PrismaRoom): StoredRoom {
     hostClientId: row.hostClientId,
     settings,
     timer,
+    modClientIds: row.modClientIds,
+    mediaVideoId: row.mediaVideoId,
+    mediaLoop: row.mediaLoop,
     createdAt: row.createdAt.getTime(),
     lastActiveAt: row.lastActiveAt.getTime(),
   };
@@ -60,6 +64,7 @@ export function createPrismaStore(prisma: PrismaClient): RoomStore {
           cyclesBeforeLong: input.settings.cyclesBeforeLong,
           autoStart: input.settings.autoStart,
           timerControl: input.settings.timerControl,
+          strictFocus: input.settings.strictFocus,
           timerPhase: timer.phase,
           timerStatus: timer.status,
           timerDurationMs: timer.phaseDurationMs,
@@ -88,7 +93,11 @@ export function createPrismaStore(prisma: PrismaClient): RoomStore {
         data.cyclesBeforeLong = patch.settings.cyclesBeforeLong;
         data.autoStart = patch.settings.autoStart;
         data.timerControl = patch.settings.timerControl;
+        data.strictFocus = patch.settings.strictFocus;
       }
+      if (patch.modClientIds !== undefined) data.modClientIds = patch.modClientIds;
+      if ('mediaVideoId' in patch) data.mediaVideoId = patch.mediaVideoId;
+      if (patch.mediaLoop !== undefined) data.mediaLoop = patch.mediaLoop;
       if (patch.timer) {
         data.timerPhase = patch.timer.phase;
         data.timerStatus = patch.timer.status;

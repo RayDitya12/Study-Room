@@ -19,6 +19,11 @@ model Room {
   cyclesBeforeLong Int       @default(4)
   autoStart        Boolean   @default(false)
   timerControl     String    @default("host")
+  strictFocus      Boolean   @default(false)
+  // ClientIds promoted to moderator, so the tier survives a restart.
+  modClientIds     String[]  @default([])
+  mediaVideoId     String?
+  mediaLoop        Boolean   @default(false)
   // persisted timer
   timerPhase       String    @default("focus")
   timerStatus      String    @default("idle")

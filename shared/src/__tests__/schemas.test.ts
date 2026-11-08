@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_SEEK_MS, MEDIA } from '../constants';
 import {
   chatSendPayloadSchema,
   clientIdSchema,
   createRoomBodySchema,
+  focusSetTrackingPayloadSchema,
+  focusStatePayloadSchema,
   joinRoomPayloadSchema,
+  mediaLoopPayloadSchema,
+  mediaSeekPayloadSchema,
+  mediaSetPayloadSchema,
   nicknameSchema,
   roomCodeSchema,
   roomSettingsInputSchema,
+  roomSettingsPatchSchema,
   roomSettingsSchema,
 } from '../schemas';
 
@@ -51,6 +58,7 @@ describe('roomSettings schemas', () => {
     cyclesBeforeLong: 4,
     autoStart: false,
     timerControl: 'host',
+    strictFocus: false,
   };
 
   it('accepts a full valid object', () => {
@@ -69,6 +77,11 @@ describe('roomSettings schemas', () => {
 
   it('rejects unknown fields (.strict)', () => {
     expect(roomSettingsSchema.safeParse({ ...valid, evil: 1 }).success).toBe(false);
+  });
+
+  it('patch accepts strictFocus on its own', () => {
+    expect(roomSettingsPatchSchema.safeParse({ strictFocus: true }).success).toBe(true);
+    expect(roomSettingsPatchSchema.safeParse({ strictFocus: 'yes' }).success).toBe(false);
   });
 
   it('input schema fills defaults', () => {
@@ -118,5 +131,52 @@ describe('clientIdSchema', () => {
   it('accepts UUID v4 only', () => {
     expect(clientIdSchema.safeParse(UUID).success).toBe(true);
     expect(clientIdSchema.safeParse('hello').success).toBe(false);
+  });
+});
+
+describe('media payloads', () => {
+  it('accepts a link up to the URL cap', () => {
+    expect(mediaSetPayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ' }).success).toBe(
+      true,
+    );
+    expect(mediaSetPayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX) }).success).toBe(true);
+    expect(mediaSetPayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX + 1) }).success).toBe(
+      false,
+    );
+    expect(mediaSetPayloadSchema.safeParse({ url: '   ' }).success).toBe(false);
+  });
+
+  it('bounds a seek position to a whole number of milliseconds', () => {
+    expect(mediaSeekPayloadSchema.safeParse({ positionMs: 0 }).success).toBe(true);
+    expect(mediaSeekPayloadSchema.safeParse({ positionMs: MAX_SEEK_MS }).success).toBe(true);
+    expect(mediaSeekPayloadSchema.safeParse({ positionMs: -1 }).success).toBe(false);
+    expect(mediaSeekPayloadSchema.safeParse({ positionMs: MAX_SEEK_MS + 1 }).success).toBe(false);
+    expect(mediaSeekPayloadSchema.safeParse({ positionMs: 1.5 }).success).toBe(false);
+  });
+
+  it('requires a boolean loop flag', () => {
+    expect(mediaLoopPayloadSchema.safeParse({ loop: true }).success).toBe(true);
+    expect(mediaLoopPayloadSchema.safeParse({ loop: 'yes' }).success).toBe(false);
+  });
+
+  it('rejects unknown fields', () => {
+    expect(
+      mediaSetPayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ', autoplay: true })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('focus payloads', () => {
+  it('takes one boolean each', () => {
+    expect(focusSetTrackingPayloadSchema.safeParse({ enabled: true }).success).toBe(true);
+    expect(focusSetTrackingPayloadSchema.safeParse({ enabled: 'yes' }).success).toBe(false);
+    expect(focusStatePayloadSchema.safeParse({ away: false }).success).toBe(true);
+    expect(focusStatePayloadSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('never carries which tab or app the member looked at', () => {
+    expect(focusStatePayloadSchema.safeParse({ away: true, url: 'x' }).success).toBe(false);
+    expect(focusStatePayloadSchema.safeParse({ away: true, site: 'x' }).success).toBe(false);
   });
 });

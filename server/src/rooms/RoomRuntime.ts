@@ -4,6 +4,7 @@ import {
   complete,
   KICK_COOLDOWN_MS,
   LIMITS,
+  mediaMachine,
   pause as pauseTimer,
   reset as resetTimer,
   skip as skipTimer,
@@ -11,10 +12,12 @@ import {
   type BlockedMember,
   type BlockReason,
   type ChatMessage,
+  type MediaState,
   type Member,
   type MemberStatus,
   type RoomSettings,
   type RoomSnapshot,
+  type Role,
   type ServerToClientEvents,
   type TimerState,
 } from '@studyroom/shared';
@@ -78,8 +81,11 @@ export class RoomRuntime {
   hostClientId: string;
   settings: RoomSettings;
   timer: TimerState;
+  media: MediaState;
 
   private readonly members = new Map<string, MemberEntry>();
+  /** Promoted clientIds, mirrored in the store so moderators survive a restart. */
+  private readonly modClientIds = new Set<string>();
   /** Kept in memory as well as in the store, so joining needs no extra query. */
   private readonly blocks = new Map<
     string,
@@ -109,6 +115,15 @@ export class RoomRuntime {
     this.hostClientId = stored.hostClientId;
     this.settings = stored.settings;
     this.timer = stored.timer;
+    // The playhead is never persisted, so a reloaded room offers its video from
+    // the top, paused until a controller presses play.
+    this.media = {
+      ...mediaMachine.createInitialMedia(clock.now()),
+      videoId: stored.mediaVideoId,
+      loop: stored.mediaLoop,
+      status: stored.mediaVideoId ? 'paused' : 'stopped',
+    };
+    this.modClientIds = new Set(stored.modClientIds);
     this.store = store;
     this.clock = clock;
     this.emitter = emitter;
@@ -184,7 +199,7 @@ export class RoomRuntime {
         nickname: this.dedupeNickname(nickname),
         status: 'focusing',
         task: '',
-        isModerator: false,
+        isModerator: this.modClientIds.has(input.clientId),
         isMuted: false,
         joinedAt: this.clock.now(),
         sockets: new Set([socket.id]),
@@ -246,10 +261,16 @@ export class RoomRuntime {
         .sort((a, b) => a.joinedAt - b.joinedAt);
       const next = candidates[0];
       if (next) {
+        // The host outranks a moderator, so promotion clears that flag for good.
         next.isModerator = false;
+        this.modClientIds.delete(next.clientId);
         this.hostClientId = next.clientId;
         await this.store
-          .saveRoomState(this.roomId, { hostClientId: next.clientId, lastActiveAt: this.clock.now() })
+          .saveRoomState(this.roomId, {
+            hostClientId: next.clientId,
+            modClientIds: [...this.modClientIds],
+            lastActiveAt: this.clock.now(),
+          })
           .catch((err) => console.error('[room] failed to persist host transfer:', err));
         this.emitter.toRoom('room:hostChanged', { hostUserId: next.userId, reason: 'auto' });
         this.emitter.toRoom('member:updated', { ...this.toMember(entry), isHost: false, online: false });
@@ -327,10 +348,15 @@ export class RoomRuntime {
 
   // ---------- timer ----------
 
-  canControlTimer(clientId: string): boolean {
-    if (this.settings.timerControl === 'everyone') return true;
+  /** Host or moderator: the tier allowed to drive the shared timer and music. */
+  canControl(clientId: string): boolean {
     if (clientId === this.hostClientId) return true;
     return this.members.get(clientId)?.isModerator === true;
+  }
+
+  canControlTimer(clientId: string): boolean {
+    if (this.settings.timerControl === 'everyone') return true;
+    return this.canControl(clientId);
   }
 
   async timerAction(socket: RuntimeSocket, action: TimerAction): Promise<TimerState> {
@@ -388,9 +414,14 @@ export class RoomRuntime {
 
     // The host outranks a moderator, so the promoted member drops that flag.
     target.isModerator = false;
+    this.modClientIds.delete(target.clientId);
     this.hostClientId = target.clientId;
     await this.store
-      .saveRoomState(this.roomId, { hostClientId: target.clientId, lastActiveAt: this.clock.now() })
+      .saveRoomState(this.roomId, {
+        hostClientId: target.clientId,
+        modClientIds: [...this.modClientIds],
+        lastActiveAt: this.clock.now(),
+      })
       .catch((err) => console.error('[room] failed to persist host transfer:', err));
     this.emitter.toRoom('room:hostChanged', { hostUserId: target.userId, reason: 'transfer' });
     this.emitter.toRoom('member:updated', this.toMember(entry));
@@ -408,6 +439,14 @@ export class RoomRuntime {
     const target = this.findPromotable(targetUserId);
 
     target.isModerator = isModerator;
+    if (isModerator) this.modClientIds.add(target.clientId);
+    else this.modClientIds.delete(target.clientId);
+    await this.store
+      .saveRoomState(this.roomId, {
+        modClientIds: [...this.modClientIds],
+        lastActiveAt: this.clock.now(),
+      })
+      .catch((err) => console.error('[room] failed to persist moderators:', err));
     this.touch();
     const member = this.toMember(target);
     this.emitter.toRoom('member:updated', member);
@@ -596,6 +635,7 @@ export class RoomRuntime {
       hostUserId: publicUserId(this.hostClientId, this.roomId),
       members: [...this.members.values()].map((m) => this.toMember(m)),
       timer: this.timer,
+      media: this.media,
       messages: stored.map((m) => ({
         id: m.id,
         userId: publicUserId(m.clientId, this.roomId),
@@ -607,6 +647,11 @@ export class RoomRuntime {
     };
   }
 
+  private roleOf(entry: MemberEntry): Role {
+    if (entry.clientId === this.hostClientId) return 'host';
+    return entry.isModerator ? 'mod' : 'member';
+  }
+
   private toMember(entry: MemberEntry): Member {
     return {
       userId: entry.userId,
@@ -615,7 +660,9 @@ export class RoomRuntime {
       task: entry.task,
       isHost: entry.clientId === this.hostClientId,
       isModerator: entry.isModerator,
+      role: this.roleOf(entry),
       isMuted: entry.isMuted,
+      focus: { tracking: false, away: false, awaySince: null, awayCount: 0, awayMs: 0 },
       online: entry.sockets.size > 0,
       joinedAt: entry.joinedAt,
     };

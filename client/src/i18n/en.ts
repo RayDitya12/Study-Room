@@ -142,6 +142,8 @@ export const en = {
     MUTED: 'You are muted in this room',
     KICKED: 'You were kicked from this room',
     BANNED: 'You are banned from this room',
+    INVALID_MEDIA_URL: 'That is not a YouTube video link',
+    NO_MEDIA: 'There is no music in this room yet',
     INTERNAL: 'Something went wrong',
   },
   toasts: {

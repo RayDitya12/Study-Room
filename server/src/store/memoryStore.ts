@@ -24,6 +24,9 @@ export function createMemoryStore(): RoomStore {
         hostClientId: input.hostClientId,
         settings: input.settings,
         timer: createInitialTimer(input.settings),
+        modClientIds: [],
+        mediaVideoId: null,
+        mediaLoop: false,
         createdAt: now,
         lastActiveAt: now,
       };

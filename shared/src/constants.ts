@@ -23,6 +23,32 @@ export const PHASES = ['focus', 'break', 'longBreak'] as const;
 export const TIMER_STATUSES = ['idle', 'running', 'paused'] as const;
 export const TIMER_CONTROLS = ['host', 'everyone'] as const;
 
+export const ROLES = ['host', 'mod', 'member'] as const;
+export const MEDIA_STATUSES = ['stopped', 'playing', 'paused'] as const;
+
+/**
+ * Ready-made Pomodoro settings. Every value stays inside the matching `LIMITS`
+ * range, which a unit test guards.
+ */
+export const TIMER_PRESETS = [
+  { id: 'classic', focusMin: 25, breakMin: 5, longBreakMin: 15, cyclesBeforeLong: 4 },
+  { id: 'sprint', focusMin: 15, breakMin: 3, longBreakMin: 10, cyclesBeforeLong: 4 },
+  { id: 'deep', focusMin: 50, breakMin: 10, longBreakMin: 30, cyclesBeforeLong: 3 },
+  { id: 'ultra', focusMin: 90, breakMin: 20, longBreakMin: 30, cyclesBeforeLong: 2 },
+] as const;
+
+export const MEDIA = {
+  URL_MAX: 200,
+  MIN_PLAYER_HEIGHT_PX: 200,
+  DRIFT_THRESHOLD_MS: 2000,
+  DRIFT_CHECK_MS: 5000,
+} as const;
+
+export const FOCUS = { AWAY_DEBOUNCE_MS: 3000 } as const;
+
+/** One day of playback is a sane upper bound for a seek position. */
+export const MAX_SEEK_MS = 86_400_000;
+
 export const ERROR_CODES = [
   'ROOM_NOT_FOUND',
   'PASSWORD_REQUIRED',
@@ -35,6 +61,8 @@ export const ERROR_CODES = [
   'MUTED',
   'KICKED',
   'BANNED',
+  'INVALID_MEDIA_URL',
+  'NO_MEDIA',
   'INTERNAL',
 ] as const;
 

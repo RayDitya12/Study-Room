@@ -144,6 +144,8 @@ export const id: Messages = {
     MUTED: 'Kamu dibisukan di ruang ini',
     KICKED: 'Kamu dikeluarkan dari ruang ini',
     BANNED: 'Kamu diblokir dari ruang ini',
+    INVALID_MEDIA_URL: 'Itu bukan tautan video YouTube',
+    NO_MEDIA: 'Belum ada musik di ruang ini',
     INTERNAL: 'Terjadi kesalahan',
   },
   toasts: {

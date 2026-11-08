@@ -1,39 +1,62 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DEFAULT_PRESET_ID, type PresetId } from '../lib/soundPresets';
+import {
+  migratePrefs,
+  PREF_DEFAULTS,
+  PREFS_STORAGE_VERSION,
+  type AlertSoundPref,
+  type AmbientPref,
+  type LangPref,
+  type PrefsValues,
+  type SelectableTheme,
+  type ThemePref,
+  type TimerStylePref,
+} from '../lib/prefs';
+import type { PresetId } from '../lib/soundPresets';
 
-export type ThemePref = 'system' | 'light' | 'dark';
-/** The two modes the toggle can actually land on. */
-export type SelectableTheme = Exclude<ThemePref, 'system'>;
-export type LangPref = 'en' | 'id';
+export type { AlertSoundPref, AmbientPref, LangPref, SelectableTheme, ThemePref, TimerStylePref };
 
-interface PrefsState {
-  theme: ThemePref;
-  lang: LangPref;
-  soundOn: boolean;
-  soundPreset: PresetId;
+interface PrefsState extends PrefsValues {
   setTheme: (theme: SelectableTheme) => void;
   setLang: (lang: LangPref) => void;
   toggleLang: () => void;
   toggleSound: () => void;
   setSoundPreset: (id: PresetId) => void;
+  setAlertSound: (id: AlertSoundPref) => void;
+  setAlertVolume: (volume: number) => void;
+  setAmbientType: (type: AmbientPref) => void;
+  setAmbientVolume: (volume: number) => void;
+  setAmbientOnlyWhileFocus: (onlyWhileFocus: boolean) => void;
+  setTimerStyle: (style: TimerStylePref) => void;
+  setFocusTracking: (enabled: boolean) => void;
+  setMusicVolume: (volume: number) => void;
+  setMusicListening: (listening: boolean) => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
   persist(
     (set) => ({
-      // 'system' means "never chosen yet": the theme follows the OS until the
-      // toggle is used, after which it is always an explicit light or dark.
-      theme: 'system',
-      lang: 'en',
-      soundOn: true,
-      soundPreset: DEFAULT_PRESET_ID,
+      ...PREF_DEFAULTS,
       setTheme: (theme) => set({ theme }),
       setLang: (lang) => set({ lang }),
       toggleLang: () => set((s) => ({ lang: s.lang === 'en' ? 'id' : 'en' })),
       toggleSound: () => set((s) => ({ soundOn: !s.soundOn })),
       setSoundPreset: (soundPreset) => set({ soundPreset }),
+      setAlertSound: (alertSound) => set({ alertSound }),
+      setAlertVolume: (alertVolume) => set({ alertVolume }),
+      setAmbientType: (ambientType) => set({ ambientType }),
+      setAmbientVolume: (ambientVolume) => set({ ambientVolume }),
+      setAmbientOnlyWhileFocus: (ambientOnlyWhileFocus) => set({ ambientOnlyWhileFocus }),
+      setTimerStyle: (timerStyle) => set({ timerStyle }),
+      setFocusTracking: (focusTracking) => set({ focusTracking }),
+      setMusicVolume: (musicVolume) => set({ musicVolume }),
+      setMusicListening: (musicListening) => set({ musicListening }),
     }),
-    { name: 'studyroom.prefs' },
+    {
+      name: 'studyroom.prefs',
+      version: PREFS_STORAGE_VERSION,
+      // Anything stored before a key existed is filled with its default.
+      migrate: (stored) => migratePrefs(stored),
+    },
   ),
 );

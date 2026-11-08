@@ -1,19 +1,27 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Member, RoomSnapshot, TimerState } from '@studyroom/shared';
+import { mediaMachine, type Member, type RoomSnapshot, type TimerState } from '@studyroom/shared';
 import { useRoomStore, type SystemLine } from '../stores/roomStore';
 
-const member = (over: Partial<Member> = {}): Member => ({
-  userId: 'u1',
-  nickname: 'Anna',
-  status: 'focusing',
-  task: '',
-  isHost: true,
-  isModerator: false,
-  isMuted: false,
-  online: true,
-  joinedAt: 1_000,
-  ...over,
-});
+const member = (over: Partial<Member> = {}): Member => {
+  const m: Member = {
+    userId: 'u1',
+    nickname: 'Anna',
+    status: 'focusing',
+    task: '',
+    isHost: true,
+    isModerator: false,
+    role: 'host',
+    isMuted: false,
+    focus: { tracking: false, away: false, awaySince: null, awayCount: 0, awayMs: 0 },
+    online: true,
+    joinedAt: 1_000,
+    ...over,
+  };
+  // Derive the role exactly like the server does, so a test cannot describe a
+  // member who is both host and plain member.
+  if (over.role) return m;
+  return { ...m, role: m.isHost ? 'host' : m.isModerator ? 'mod' : 'member' };
+};
 
 const timer = (over: Partial<TimerState> = {}): TimerState => ({
   phase: 'focus',
@@ -37,11 +45,13 @@ const snapshot = (over: Partial<RoomSnapshot> = {}): RoomSnapshot => ({
     cyclesBeforeLong: 4,
     autoStart: false,
     timerControl: 'host',
+    strictFocus: false,
   },
   you: { userId: 'u1' },
   hostUserId: 'u1',
   members: [member()],
   timer: timer(),
+  media: mediaMachine.createInitialMedia(5_000),
   messages: [],
   serverNow: 5_000,
   ...over,
@@ -108,13 +118,23 @@ describe('roomStore', () => {
 
   it('flips host flags and announces the new host', () => {
     useRoomStore.getState().applySnapshot(
-      snapshot({ members: [member(), member({ userId: 'u2', nickname: 'Bo', isHost: false })] }),
+      snapshot({
+        members: [
+          member(),
+          member({ userId: 'u2', nickname: 'Bo', isHost: false }),
+          member({ userId: 'u3', nickname: 'Cy', isHost: false, isModerator: true }),
+        ],
+      }),
     );
     useRoomStore.getState().hostChanged('u2');
     const s = useRoomStore.getState();
     expect(s.hostUserId).toBe('u2');
     expect(s.members.find((m) => m.userId === 'u1')?.isHost).toBe(false);
     expect(s.members.find((m) => m.userId === 'u2')?.isHost).toBe(true);
+    // The role label has to move with the crown, and a moderator keeps theirs.
+    expect(s.members.find((m) => m.userId === 'u1')?.role).toBe('member');
+    expect(s.members.find((m) => m.userId === 'u2')?.role).toBe('host');
+    expect(s.members.find((m) => m.userId === 'u3')?.role).toBe('mod');
     expect(lines()[0]?.key).toBe('chat.hostChanged');
   });
 
