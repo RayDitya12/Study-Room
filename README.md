@@ -364,12 +364,13 @@ client/   react 19 + vite 7 + tailwind 4, zustand stores, media sync engine, i18
   browsers require a gesture before sound. Positions are matched against the server clock and corrected
   when a device drifts more than two seconds, so windows agree to roughly a second, not to the
   millisecond, and a livestream has no position to match at all. The player is an iframe from
-  `youtube-nocookie.com` cropped into an 88 px circle, so the video itself is the record's face under a
-  CSS groove film and the label in the middle is the only flat part. An embed chooses its stream from the
-  size it is rendered at, so the small box is also what keeps the sound from buffering, and the player
-  cannot simply be hidden — a zero-size box may never report `playing`. Its own controls are unreachable (`pointer-events: none`) and
-  the drift check reconciles playback state as well as position, so the play/pause in the middle of the
-  record is the only thing that decides whether sound is coming out. On a phone the player is only built
+  `youtube-nocookie.com` cropped into an 88 px circle that turns while the sound does, so the record's
+  face is the video itself under a CSS groove film, and the label in the middle is the only flat part. An
+  embed chooses its stream from the size it is rendered at, so the small box is also what keeps the sound
+  from buffering, and the player cannot simply be hidden — a zero-size box may never report `playing`.
+  Its own controls are unreachable (`pointer-events: none`) and the drift check reconciles playback
+  state as well as position, so the play/pause in the middle of the record is the only thing that
+  decides whether sound is coming out. On a phone the player is only built
   once the card is actually on screen, so a listener who never opens the Music tab gets it the moment the
   room starts playing.
 - Rooms are deleted after `ROOM_TTL_DAYS` of inactivity; messages are capped at the last 100 per room.

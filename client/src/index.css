@@ -114,7 +114,9 @@ body {
   height: var(--vinyl-size, 88px);
 }
 
-/* The clip. Nothing here takes a pointer; the room has one set of controls. */
+/* The clip, and the turntable under it. Nothing here takes a pointer; the room
+   has one set of controls. The clip is a circle, so spinning it is invisible
+   while it carries the picture around — and the record's face is the video. */
 .vinyl-embed {
   position: absolute;
   inset: 0;
@@ -191,7 +193,8 @@ body {
   filter: brightness(1.1);
 }
 
-.vinyl[data-spin="true"] {
+.vinyl[data-spin="true"],
+.vinyl-embed[data-spin="true"] {
   animation: vinyl-spin 3.2s linear infinite;
 }
 

@@ -226,7 +226,7 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
             className="vinyl-shell self-center sm:self-auto"
             style={{ '--vinyl-size': `${MEDIA.VINYL_DIAMETER_PX}px` } as CSSProperties}
           >
-            <div className="vinyl-embed">
+            <div className="vinyl-embed" data-spin={String(spins)}>
               <div ref={containerRef} className="vinyl-frame" />
             </div>
             <span className="vinyl" data-spin={String(spins)} aria-hidden="true" />
