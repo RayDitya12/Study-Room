@@ -1,4 +1,8 @@
-import type { Member } from '@studyroom/shared';
+import type { Member, MemberFocus } from '@studyroom/shared';
+import { serverNowEstimate } from '../lib/clock';
+import { formatSpent } from '../lib/format';
+import { useNow } from '../hooks/useNow';
+import { useRoomStore } from '../stores/roomStore';
 import { MemberMenu } from './MemberMenu';
 import { useT } from '../i18n/useT';
 
@@ -26,6 +30,32 @@ function avatarColor(userId: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? 'bg-mauve/20 text-mauve';
 }
 
+/**
+ * Away time that keeps counting. Only the cards that render it tick, which is
+ * why this is a component rather than an expression in the row.
+ */
+function AwayClock({ since }: { since: number }) {
+  useNow(1_000);
+  const t = useT();
+  return (
+    <>
+      {t('focus.awayChip')} · {formatSpent(Math.max(0, serverNowEstimate() - since))}
+    </>
+  );
+}
+
+/** The same numbers the room has, for the member on this device. */
+function OwnFocusLine({ focus }: { focus: MemberFocus }) {
+  useNow(1_000);
+  const t = useT();
+  const ongoing = focus.awaySince === null ? 0 : Math.max(0, serverNowEstimate() - focus.awaySince);
+  return (
+    <p className="text-xs text-subtext0 tabular-nums">
+      {t('focus.leftTab', { count: focus.awayCount, time: formatSpent(focus.awayMs + ongoing) })}
+    </p>
+  );
+}
+
 export interface MemberItemProps {
   member: Member;
   isYou: boolean;
@@ -50,6 +80,14 @@ export function MemberItem({
   const t = useT();
   const isModerator = member.isModerator && !member.isHost;
   const showMenu = canManage && member.online && !member.isHost && !isYou;
+  const strictFocus = useRoomStore((s) => s.settings?.strictFocus === true);
+  const focusPhase = useRoomStore((s) => {
+    const timer = s.timer;
+    return timer?.status === 'running' && timer.phase === 'focus';
+  });
+  const { focus } = member;
+  // Only a live interval has a number to show, and the room has to be counting.
+  const showAway = focus.tracking && focus.away && focusPhase && focus.awaySince !== null;
 
   return (
     <li
@@ -117,6 +155,23 @@ export function MemberItem({
               <path d="M15 9.3V6a3 3 0 00-5.9-.6M9 9.5V11a3 3 0 004.6 2.5M12 18a3 3 0 003-3M5 5l14 14" />
             </svg>
           ) : null}
+          {focus.tracking ? (
+            <svg
+              aria-label={t('focus.trackingOn')}
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 text-teal"
+            >
+              <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+              <circle cx="12" cy="12" r="2.6" />
+            </svg>
+          ) : null}
           <span className="truncate text-sm font-medium text-text" title={member.nickname}>
             {member.nickname}
           </span>
@@ -139,6 +194,20 @@ export function MemberItem({
         ) : (
           <p className="text-xs text-subtext0">{t('members.offline')}</p>
         )}
+
+        {showAway ? (
+          <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-yellow/15 px-2 py-0.5 text-xs font-medium text-yellow">
+            <AwayClock since={focus.awaySince ?? 0} />
+          </p>
+        ) : null}
+
+        {/* Under a strict-focus host, being untracked is a fact about the seat,
+            not a judgement: nobody is blocked or excluded for it. */}
+        {!showAway && member.online && strictFocus && !focus.tracking ? (
+          <p className="mt-1 text-xs text-overlay0">{t('focus.notTracking')}</p>
+        ) : null}
+
+        {isYou && focus.tracking ? <OwnFocusLine focus={focus} /> : null}
       </div>
 
       {showMenu ? (

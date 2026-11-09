@@ -5,8 +5,8 @@ import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
 import { useT } from '../i18n/useT';
 
 const PANEL_WIDTH = 244;
-/** The three groups are taller than this, so the panel scrolls inside. */
-const PANEL_HEIGHT = 420;
+/** The four groups are taller than any screen, so the panel scrolls inside. */
+const PANEL_HEIGHT = 520;
 const SMALL_SCREEN = '(max-width: 639.98px)';
 
 const TIMER_STYLES: TimerStylePref[] = ['ring', 'minimal'];
@@ -34,6 +34,8 @@ export function SoundDisplayPopover() {
   const setAmbientOnlyWhileFocus = usePrefsStore((s) => s.setAmbientOnlyWhileFocus);
   const timerStyle = usePrefsStore((s) => s.timerStyle);
   const setTimerStyle = usePrefsStore((s) => s.setTimerStyle);
+  const focusTracking = usePrefsStore((s) => s.focusTracking);
+  const setFocusTracking = usePrefsStore((s) => s.setFocusTracking);
 
   useEffect(() => {
     if (!anchor) return;
@@ -251,6 +253,21 @@ export function SoundDisplayPopover() {
                 </button>
               ))}
             </div>
+          </fieldset>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-subtext0">{t('display.focusGroup')}</legend>
+            <p className="text-xs text-subtext0">{t('display.focusHint')}</p>
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="text-sm text-subtext0">{t('display.focusSwitch')}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={focusTracking}
+                onChange={(e) => setFocusTracking(e.currentTarget.checked)}
+                className="h-5 w-5 accent-mauve"
+              />
+            </label>
           </fieldset>
         </div>
       ) : null}

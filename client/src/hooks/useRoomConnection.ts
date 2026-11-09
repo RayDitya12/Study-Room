@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   EmptyPayload,
   ErrorCode,
+  FocusSummaryEvent,
   Member,
   MemberStatus,
   RoomSettings,
@@ -46,6 +47,10 @@ export interface RoomActions {
   ban: (targetUserId: string) => Promise<boolean>;
   unban: (targetUserId: string) => Promise<boolean>;
   getBlocks: () => Promise<BlockedMember[] | null>;
+  /** Self only: opt in or out of focus tracking. */
+  setFocusTracking: (enabled: boolean) => Promise<boolean>;
+  /** Self only, fire and forget: the tab went hidden or came back. */
+  sendFocusState: (away: boolean) => void;
 }
 
 const ACK_TIMEOUT_MS = 10_000;
@@ -156,6 +161,9 @@ export function useRoomConnection(code: string): {
     socket.on('chat:message', (message: ChatMessage) => useRoomStore.getState().chatMessage(message));
     socket.on('chat:typing', ({ userId, isTyping }) =>
       useRoomStore.getState().chatTyping(userId, isTyping),
+    );
+    socket.on('focus:summary', (event: FocusSummaryEvent) =>
+      useRoomStore.getState().focusSummaryReceived(event),
     );
     socket.on('timer:state', (event) => {
       useRoomStore.getState().timerState(event);
@@ -303,6 +311,11 @@ export function useRoomConnection(code: string): {
           return null;
         }
         return res.data;
+      },
+      setFocusTracking: (enabled) =>
+        run<Member>((socket, cb) => socket.emit('focus:setTracking', { enabled }, cb)),
+      sendFocusState: (away) => {
+        socketRef.current?.emit('focus:state', { away }, () => undefined);
       },
     }),
     [notifyError, request, run],

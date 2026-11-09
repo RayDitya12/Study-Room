@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { mediaMachine, type Member, type RoomSnapshot, type TimerState } from '@studyroom/shared';
+import {
+  mediaMachine,
+  type FocusSummaryEvent,
+  type Member,
+  type RoomSnapshot,
+  type TimerState,
+} from '@studyroom/shared';
 import { useRoomStore, type SystemLine } from '../stores/roomStore';
 
 const member = (over: Partial<Member> = {}): Member => {
@@ -202,5 +208,41 @@ describe('roomStore', () => {
     expect(useRoomStore.getState().kicked).toBe('kick');
     useRoomStore.getState().applySnapshot(snapshot());
     expect(useRoomStore.getState().kicked).toBeNull();
+  });
+
+  it('carries a focus summary until the dialog closes it', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    const event: FocusSummaryEvent = {
+      summaries: [
+        { userId: 'u1', nickname: 'Anna', awayCount: 2, awayMs: 8_000, activeMs: 60_000, focusPct: 87 },
+      ],
+      endedBy: 'complete',
+    };
+    useRoomStore.getState().focusSummaryReceived(event);
+    expect(useRoomStore.getState().focusSummary).toEqual(event);
+    useRoomStore.getState().focusSummaryReceived(null);
+    expect(useRoomStore.getState().focusSummary).toBeNull();
+  });
+
+  it('does not leave a summary dialog behind when the room goes', () => {
+    useRoomStore.getState().focusSummaryReceived({ summaries: [], endedBy: 'reset' });
+    useRoomStore.getState().clear();
+    expect(useRoomStore.getState().focusSummary).toBeNull();
+  });
+
+  it('keeps the focus counters a member update brings', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    useRoomStore.getState().memberUpdated(
+      member({
+        focus: { tracking: true, away: true, awaySince: 9_000, awayCount: 3, awayMs: 12_000 },
+      }),
+    );
+    expect(useRoomStore.getState().members[0]?.focus).toEqual({
+      tracking: true,
+      away: true,
+      awaySince: 9_000,
+      awayCount: 3,
+      awayMs: 12_000,
+    });
   });
 });

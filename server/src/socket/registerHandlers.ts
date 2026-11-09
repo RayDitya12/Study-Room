@@ -2,6 +2,8 @@ import {
   chatSendPayloadSchema,
   chatTypingPayloadSchema,
   emptyPayloadSchema,
+  focusSetTrackingPayloadSchema,
+  focusStatePayloadSchema,
   joinRoomPayloadSchema,
   memberTargetPayloadSchema,
   memberUpdatePayloadSchema,
@@ -142,6 +144,21 @@ export function registerHandlers(
     socket.on(
       'room:getBlocks',
       handle(emptyPayloadSchema, (_payload, s) => runtimeOf(s).listBlocks(s)),
+    );
+
+    socket.on(
+      'focus:setTracking',
+      handle(focusSetTrackingPayloadSchema, (payload, s) =>
+        runtimeOf(s).setFocusTracking(s, payload.enabled),
+      ),
+    );
+
+    socket.on(
+      'focus:state',
+      handle(focusStatePayloadSchema, (payload, s) => {
+        runtimeOf(s).setFocusAway(s, payload.away);
+        return {} as EmptyPayload;
+      }),
     );
 
     socket.on('disconnect', () => {

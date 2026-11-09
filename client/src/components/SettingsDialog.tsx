@@ -70,6 +70,7 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
     }
     if (draft.autoStart !== settings.autoStart) patch.autoStart = draft.autoStart;
     if (draft.timerControl !== settings.timerControl) patch.timerControl = draft.timerControl;
+    if (draft.strictFocus !== settings.strictFocus) patch.strictFocus = draft.strictFocus;
     if (Object.keys(patch).length === 0) {
       onClose();
       return;
@@ -132,6 +133,20 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
             checked={draft.autoStart}
             onChange={(e) => setDraft((d) => ({ ...d, autoStart: e.target.checked }))}
             className="h-5 w-5 accent-mauve"
+          />
+        </label>
+
+        <label className="flex cursor-pointer items-center justify-between gap-3">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm text-subtext0">{t('settings.strictFocus')}</span>
+            <span className="text-xs text-overlay0">{t('settings.strictFocusHint')}</span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={draft.strictFocus}
+            onChange={(e) => setDraft((d) => ({ ...d, strictFocus: e.target.checked }))}
+            className="h-5 w-5 shrink-0 accent-mauve"
           />
         </label>
 

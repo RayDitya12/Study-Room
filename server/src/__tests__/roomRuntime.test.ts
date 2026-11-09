@@ -604,3 +604,207 @@ describe('mute, kick and ban', () => {
     expect(rejoined.members.find((m) => m.userId === guestUserId)?.isMuted).toBe(false);
   });
 });
+
+describe('focus tracking', () => {
+  async function hostPlusTrackedGuest() {
+    const ctx = await makeRuntime();
+    const hostSock = fakeSocket('s1');
+    const guestSock = fakeSocket('s2');
+    const hostSnap = await ctx.runtime.join(hostSock, {
+      nickname: 'Anna',
+      clientId: hostCid,
+      ip: '1.2.3.4',
+    });
+    const guestSnap = await ctx.runtime.join(guestSock, {
+      nickname: 'Budi',
+      clientId: guestCid,
+      ip: '1.2.3.4',
+    });
+    ctx.runtime.setFocusTracking(guestSock, true);
+    return {
+      ...ctx,
+      hostSock,
+      guestSock,
+      hostUserId: hostSnap.you.userId,
+      guestUserId: guestSnap.you.userId,
+    };
+  }
+
+  /** The member:updated events recorded after `mark`, for one member. */
+  function updatesFor(events: RecordedEvent[], mark: number, userId: string): unknown[] {
+    return events
+      .slice(mark)
+      .filter((e) => e.event === 'member:updated')
+      .map((e) => e.args[0])
+      .filter((m) => (m as { userId: string }).userId === userId);
+  }
+
+  const focusOf = async (runtime: RoomRuntime, userId: string) => {
+    const snap = await runtime.snapshotFor(hostCid);
+    const member = snap.members.find((m) => m.userId === userId);
+    if (!member) throw new Error('member disappeared');
+    return member.focus;
+  };
+
+  it('starts every member untracked, and opting in only touches yourself', async () => {
+    const { runtime, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    const hostUserId = (await runtime.snapshotFor(hostCid)).hostUserId;
+
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({ tracking: true, away: false });
+    expect(await focusOf(runtime, hostUserId)).toMatchObject({
+      tracking: false,
+      away: false,
+      awayCount: 0,
+      awayMs: 0,
+      awaySince: null,
+    });
+
+    // Nothing in this API can opt another member in or out: the call only ever
+    // touches the caller's own entry.
+    runtime.setFocusTracking(guestSock, false);
+    expect((await focusOf(runtime, guestUserId)).tracking).toBe(false);
+    expect((await focusOf(runtime, hostUserId)).tracking).toBe(false);
+  });
+
+  it('rejects an away report from a member who never opted in', async () => {
+    const { runtime, hostSock } = await hostPlusTrackedGuest();
+    expect(() => runtime.setFocusAway(hostSock, true)).toThrow('FORBIDDEN');
+  });
+
+  it('counts each away interval and tells the room as it happens', async () => {
+    const { runtime, clock, events, hostSock, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+
+    const mark = events.length;
+    runtime.setFocusAway(guestSock, true);
+    clock.advance(5_000);
+    runtime.setFocusAway(guestSock, false);
+
+    const mine = updatesFor(events, mark, guestUserId);
+    expect(mine).toHaveLength(2);
+    expect(mine[0]).toMatchObject({
+      focus: { tracking: true, away: true, awayCount: 1, awaySince: expect.any(Number) },
+    });
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({
+      away: false,
+      awaySince: null,
+      awayCount: 1,
+      awayMs: 5_000,
+    });
+  });
+
+  it('ignores away reports while the room is paused, and charges no time for them', async () => {
+    const { runtime, clock, events, hostSock, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+    clock.advance(10_000);
+    await runtime.timerAction(hostSock, 'pause');
+
+    const mark = events.length;
+    runtime.setFocusAway(guestSock, true);
+    clock.advance(3_000);
+    runtime.setFocusAway(guestSock, false);
+    expect(updatesFor(events, mark, guestUserId)).toHaveLength(2);
+
+    await runtime.timerAction(hostSock, 'start');
+    clock.advance(10_000);
+    await runtime.timerAction(hostSock, 'skip');
+
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({
+      away: false,
+      awayCount: 0,
+      awayMs: 0,
+    });
+    const summary = events.find((e) => e.event === 'focus:summary');
+    expect(summary?.args[0]).toMatchObject({
+      endedBy: 'skip',
+      summaries: [{ userId: guestUserId, activeMs: 20_000, awayMs: 0, awayCount: 0, focusPct: 100 }],
+    });
+  });
+
+  it('a finished focus phase reports the session once, then restarts the counters', async () => {
+    const { runtime, clock, events, hostSock, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+    clock.advance(30_000);
+    runtime.setFocusAway(guestSock, true);
+    clock.advance(20_000);
+    runtime.setFocusAway(guestSock, false);
+    clock.advance(10_000);
+    await flush();
+
+    const summaries = events.filter((e) => e.event === 'focus:summary');
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.args[0]).toEqual({
+      endedBy: 'complete',
+      summaries: [
+        { userId: guestUserId, nickname: 'Budi', awayCount: 1, awayMs: 20_000, activeMs: 60_000, focusPct: 67 },
+      ],
+    });
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({
+      tracking: true,
+      awayCount: 0,
+      awayMs: 0,
+    });
+  });
+
+  it('a pause or a settings change never ends the session', async () => {
+    const { runtime, clock, events, hostSock } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+    clock.advance(20_000);
+    await runtime.timerAction(hostSock, 'pause');
+    clock.advance(5_000);
+    await runtime.timerAction(hostSock, 'start');
+    await runtime.updateSettings(hostSock, { breakMin: 2 });
+
+    expect(events.filter((e) => e.event === 'focus:summary')).toHaveLength(0);
+  });
+
+  it('reports over the rate limit are dropped instead of rejected', async () => {
+    const { runtime, clock, events, hostSock, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+
+    const mark = events.length;
+    for (let i = 0; i < 12; i += 1) runtime.setFocusAway(guestSock, i % 2 === 0);
+    expect(updatesFor(events, mark, guestUserId)).toHaveLength(10);
+
+    clock.advance(5_000);
+    runtime.setFocusAway(guestSock, true);
+    expect(updatesFor(events, mark, guestUserId)).toHaveLength(11);
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({ away: true, awayCount: 6 });
+  });
+
+  it('stays quiet when nobody tracked, or when no time was measured', async () => {
+    const { runtime, clock, events } = await makeRuntime();
+    const sock = fakeSocket('s1');
+    await runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+
+    await runtime.timerAction(sock, 'start');
+    clock.advance(60_000);
+    await flush();
+    expect(events.filter((e) => e.event === 'focus:summary')).toHaveLength(0);
+
+    // Opting in mid-break measures nothing yet, and a break is not a session.
+    runtime.setFocusTracking(sock, true);
+    await runtime.timerAction(sock, 'skip');
+    expect(events.filter((e) => e.event === 'focus:summary')).toHaveLength(0);
+
+    clock.advance(1_000);
+    await runtime.timerAction(sock, 'start');
+    clock.advance(1_000);
+    await runtime.timerAction(sock, 'reset');
+    expect(events.filter((e) => e.event === 'focus:summary')).toHaveLength(1);
+  });
+
+  it('a disconnect stops the away clock but keeps the counted time', async () => {
+    const { runtime, clock, hostSock, guestSock, guestUserId } = await hostPlusTrackedGuest();
+    await runtime.timerAction(hostSock, 'start');
+    runtime.setFocusAway(guestSock, true);
+    clock.advance(7_000);
+
+    runtime.disconnectSocket(guestSock);
+    expect(await focusOf(runtime, guestUserId)).toMatchObject({
+      tracking: true,
+      awayMs: 7_000,
+      awaySince: null,
+    });
+  });
+});

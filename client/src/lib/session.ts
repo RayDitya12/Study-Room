@@ -55,3 +55,32 @@ export function clearRoomSession(): void {
   memorySession = null;
   sessionStorage.removeItem(SESSION_KEY);
 }
+
+const CONSENT_KEY = 'studyroom.focusConsent';
+
+/**
+ * Per room code, whether this device has already answered the tracking ask, so
+ * a strict-focus room questions you once instead of on every render.
+ */
+export function hasAskedFocusConsent(code: string): boolean {
+  try {
+    const raw = localStorage.getItem(CONSENT_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) && parsed.includes(code);
+  } catch {
+    return false;
+  }
+}
+
+export function markFocusConsentAsked(code: string): void {
+  let known: unknown[] = [];
+  try {
+    const raw = localStorage.getItem(CONSENT_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) known = parsed;
+  } catch {
+    // Corrupted record: start a fresh one rather than asking again forever.
+  }
+  if (known.includes(code)) return;
+  localStorage.setItem(CONSENT_KEY, JSON.stringify([...known, code]));
+}

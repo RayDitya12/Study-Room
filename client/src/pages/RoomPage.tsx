@@ -7,13 +7,18 @@ import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
 import { useAmbient } from '../hooks/useAmbient';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useFocusTracking } from '../hooks/useFocusTracking';
 import { useNow } from '../hooks/useNow';
 import { useRoomConnection } from '../hooks/useRoomConnection';
+import { hasAskedFocusConsent, markFocusConsentAsked } from '../lib/session';
+import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
 import { useToastStore } from '../stores/toastStore';
 import { useT } from '../i18n/useT';
 import { ChatPanel } from '../components/ChatPanel';
 import { ConnectionBanner } from '../components/ConnectionBanner';
+import { FocusConsentDialog } from '../components/FocusConsentDialog';
+import { FocusSummaryDialog } from '../components/FocusSummaryDialog';
 import { JoinDialog } from '../components/JoinDialog';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { MemberList } from '../components/MemberList';
@@ -42,12 +47,27 @@ export function RoomPage() {
 
   const { autoJoinPending, actions } = useRoomConnection(code);
   useAmbient();
+  useFocusTracking(actions);
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const roomName = useRoomStore((s) => s.name);
   const timer = useRoomStore((s) => s.timer);
   const messages = useRoomStore((s) => s.messages);
   const kicked = useRoomStore((s) => s.kicked);
+  const settings = useRoomStore((s) => s.settings);
+  const focusTracking = usePrefsStore((s) => s.focusTracking);
+  const setFocusTracking = usePrefsStore((s) => s.setFocusTracking);
+  const strictFocus = settings?.strictFocus === true;
+  const [consentAsked, setConsentAsked] = useState(false);
   useNow(1_000);
+
+  // A strict-focus room asks once per code, on this device. Declining is a
+  // complete answer, so the ask never comes back on the next render.
+  useEffect(() => {
+    if (!strictFocus || focusTracking || consentAsked || !hasRoom) return;
+    if (hasAskedFocusConsent(code)) return;
+    markFocusConsentAsked(code);
+    setConsentAsked(true);
+  }, [strictFocus, focusTracking, hasRoom, consentAsked, code]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +176,14 @@ export function RoomPage() {
             >
               {t('room.copyLink')}
             </button>
+            {strictFocus ? (
+              <span
+                title={t('focus.badgeHint')}
+                className="rounded-full bg-teal/15 px-2 py-0.5 text-xs font-medium text-teal"
+              >
+                {t('focus.badge')}
+              </span>
+            ) : null}
           </div>
         </div>
         <LanguageToggle />
@@ -228,6 +256,17 @@ export function RoomPage() {
         busy={joinBusy}
         onSubmit={(nickname, password) => void submitJoin(nickname, password)}
       />
+
+      <FocusConsentDialog
+        open={consentAsked && !focusTracking}
+        onEnable={() => {
+          setFocusTracking(true);
+          setConsentAsked(false);
+        }}
+        onDecline={() => setConsentAsked(false)}
+      />
+
+      <FocusSummaryDialog />
     </div>
   );
 }

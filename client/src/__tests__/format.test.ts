@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClockTime, formatRemaining } from '../lib/format';
+import { formatClockTime, formatRemaining, formatSpent } from '../lib/format';
 
 describe('formatRemaining', () => {
   it('renders mm:ss and ceils to whole seconds', () => {
@@ -23,5 +23,21 @@ describe('formatRemaining', () => {
   it('formats a wall-clock timestamp', () => {
     const stamp = Date.UTC(2026, 10, 8, 14, 5);
     expect(formatClockTime(stamp, 'en')).toMatch(/\d{1,2}:\d{2}/);
+  });
+});
+
+describe('formatSpent', () => {
+  it('counts in whole units and never claims a second that has not passed', () => {
+    expect(formatSpent(0)).toBe('0s');
+    expect(formatSpent(45_000)).toBe('45s');
+    expect(formatSpent(80_000)).toBe('1m 20s');
+    expect(formatSpent(80_999)).toBe('1m 20s');
+    expect(formatSpent(60_000)).toBe('1m 0s');
+  });
+
+  it('drops the seconds once hours appear, and clamps at zero', () => {
+    expect(formatSpent(3_600_000)).toBe('1h 0m');
+    expect(formatSpent(7_500_000)).toBe('2h 5m');
+    expect(formatSpent(-1_000)).toBe('0s');
   });
 });

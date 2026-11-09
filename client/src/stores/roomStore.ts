@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type {
   BlockReason,
   ChatMessage,
+  FocusSummaryEvent,
   Member,
   RoomSettings,
   RoomSnapshot,
@@ -51,6 +52,8 @@ interface RoomState {
   typing: Record<string, number>;
   /** Set when the host removed *this* client from the room. */
   kicked: BlockReason | null;
+  /** The session that just ended; drives the summary dialog. */
+  focusSummary: FocusSummaryEvent | null;
 
   setConnection: (connection: ConnectionStatus) => void;
   applySnapshot: (snapshot: RoomSnapshot) => void;
@@ -63,6 +66,7 @@ interface RoomState {
   hostChanged: (hostUserId: string) => void;
   settingsUpdated: (settings: RoomSettings) => void;
   timerState: (event: TimerStateEvent) => void;
+  focusSummaryReceived: (event: FocusSummaryEvent | null) => void;
   chatMessage: (message: ChatMessage) => void;
   chatTyping: (userId: string, isTyping: boolean) => void;
   clear: () => void;
@@ -109,6 +113,7 @@ const empty = {
   messages: [] as MessageItem[],
   typing: {} as Record<string, number>,
   kicked: null,
+  focusSummary: null as FocusSummaryEvent | null,
 };
 
 export const useRoomStore = create<RoomState>()((set) => ({
@@ -231,6 +236,9 @@ export const useRoomStore = create<RoomState>()((set) => ({
           : s.messages;
       return { timer: event.timer, messages };
     }),
+
+  // Null closes the dialog; the event itself is not a log, so nothing is kept.
+  focusSummaryReceived: (event) => set({ focusSummary: event }),
 
   chatMessage: (message) =>
     set((s) => {

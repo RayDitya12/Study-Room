@@ -12,15 +12,29 @@ import {
   type BlockedMember,
   type BlockReason,
   type ChatMessage,
+  type FocusEndReason,
+  type FocusSessionSummary,
   type MediaState,
   type Member,
+  type MemberFocus,
   type MemberStatus,
   type RoomSettings,
   type RoomSnapshot,
   type Role,
   type ServerToClientEvents,
+  type TimerChangeReason,
   type TimerState,
 } from '@studyroom/shared';
+import {
+  INITIAL_FOCUS,
+  onDisconnect,
+  onRoomActiveChange,
+  resetSession,
+  setAway,
+  setTracking,
+  summarize,
+  type FocusTrackerState,
+} from '../focus/focusTracker';
 import type { Clock, TimeoutHandle } from '../lib/clock';
 import { publicUserId } from '../lib/ids';
 import { createFailureLimiter, createRateLimiter, type FailureLimiter, type RateLimiter } from '../lib/rateLimiter';
@@ -57,6 +71,8 @@ interface MemberEntry {
   task: string;
   isModerator: boolean;
   isMuted: boolean;
+  /** Attention accounting for this member; see `focus/focusTracker.ts`. */
+  focus: FocusTrackerState;
   joinedAt: number;
   sockets: Set<string>;
   graceTimer?: TimeoutHandle;
@@ -72,6 +88,11 @@ export interface RoomRuntimeDeps {
 }
 
 export type TimerAction = 'start' | 'pause' | 'reset' | 'skip';
+
+/** The timer changes that close a focus session; a pause never does. */
+function focusEndReason(reason: TimerChangeReason): FocusEndReason | null {
+  return reason === 'complete' || reason === 'skip' || reason === 'reset' ? reason : null;
+}
 
 export class RoomRuntime {
   readonly roomId: string;
@@ -103,6 +124,8 @@ export class RoomRuntime {
   private readonly chatLimiter: RateLimiter;
   // 10 typing events per second per socket; extras are silently dropped.
   private readonly typingLimiter: RateLimiter;
+  // 10 away reports per 10 seconds per socket; extras are silently dropped.
+  private readonly focusLimiter: RateLimiter;
   // 5 wrong-password failures per minute per IP+room.
   private readonly passwordFailures: FailureLimiter;
 
@@ -132,6 +155,7 @@ export class RoomRuntime {
     this.lastActivity = clock.now();
     this.chatLimiter = createRateLimiter({ capacity: 5, refillPerMs: 1 / 1_000, clock });
     this.typingLimiter = createRateLimiter({ capacity: 10, refillPerMs: 10 / 1_000, clock });
+    this.focusLimiter = createRateLimiter({ capacity: 10, refillPerMs: 10 / 10_000, clock });
     this.passwordFailures = createFailureLimiter(5, 60_000, clock);
   }
 
@@ -201,6 +225,7 @@ export class RoomRuntime {
         task: '',
         isModerator: this.modClientIds.has(input.clientId),
         isMuted: false,
+        focus: { ...INITIAL_FOCUS },
         joinedAt: this.clock.now(),
         sockets: new Set([socket.id]),
       };
@@ -229,6 +254,9 @@ export class RoomRuntime {
     entry.sockets.delete(socket.id);
     this.emitter.toRoom('chat:typing', { userId: entry.userId, isTyping: false });
     if (entry.sockets.size === 0) {
+      // An open away interval ends with the socket; the client re-sends its
+      // state when it comes back, so nothing is counted against them offline.
+      entry.focus = onDisconnect(entry.focus, this.clock.now());
       this.emitter.toRoom('member:offline', { userId: entry.userId });
       entry.graceTimer = this.clock.setTimeout(() => {
         entry.graceTimer = undefined;
@@ -346,6 +374,77 @@ export class RoomRuntime {
     return member;
   }
 
+  // ---------- focus tracking ----------
+
+  /** Self only: opt in or out. The opt-in is never something the room can impose. */
+  setFocusTracking(socket: RuntimeSocket, enabled: boolean): Member {
+    const entry = this.requireMember(socket);
+    entry.focus = setTracking(entry.focus, enabled, this.roomActive(), this.clock.now());
+    this.touch();
+    const member = this.toMember(entry);
+    this.emitter.toRoom('member:updated', member);
+    return member;
+  }
+
+  /**
+   * Self only, and only while tracking: the tab went hidden or came back.
+   * Over the rate limit the report is dropped rather than answered with an
+   * error, because the client cannot do anything useful about it.
+   */
+  setFocusAway(socket: RuntimeSocket, away: boolean): void {
+    const entry = this.requireMember(socket);
+    if (!entry.focus.tracking) throw new AppError('FORBIDDEN');
+    if (!this.focusLimiter.allow(socket.id)) return;
+    const next = setAway(entry.focus, away, this.roomActive(), this.clock.now());
+    if (next === entry.focus) return;
+    entry.focus = next;
+    this.touch();
+    this.emitter.toRoom('member:updated', this.toMember(entry));
+  }
+
+  /** The one window focus tracking measures: a running Pomodoro focus phase. */
+  private roomActive(): boolean {
+    return this.timer.status === 'running' && this.timer.phase === 'focus';
+  }
+
+  /**
+   * Every timer write comes through here so the tracked windows follow the
+   * phase exactly. Returns how a focus session ended, which the caller reports
+   * right after `timer:state`.
+   */
+  private syncFocus(before: TimerState, reason: TimerChangeReason): FocusEndReason | null {
+    const wasActive = before.status === 'running' && before.phase === 'focus';
+    const isActive = this.roomActive();
+    const now = this.clock.now();
+    if (wasActive !== isActive) {
+      for (const entry of this.members.values()) {
+        const next = onRoomActiveChange(entry.focus, wasActive, isActive, now);
+        if (next === entry.focus) continue;
+        entry.focus = next;
+        this.emitter.toRoom('member:updated', this.toMember(entry));
+      }
+    }
+    return before.phase === 'focus' ? focusEndReason(reason) : null;
+  }
+
+  /** Reports the session that just ended, then starts everyone's counters over. */
+  private emitFocusSummary(endedBy: FocusEndReason): void {
+    const summaries: FocusSessionSummary[] = [];
+    for (const entry of this.members.values()) {
+      if (entry.focus.tracking) {
+        const sum = summarize(entry.focus);
+        if (sum.activeMs > 0) {
+          summaries.push({ userId: entry.userId, nickname: entry.nickname, ...sum });
+        }
+      }
+      // Reset tracked and untracked alike: opting out keeps the counters until
+      // the session ends, and they must not leak into the next one.
+      entry.focus = resetSession(entry.focus);
+    }
+    if (summaries.length === 0) return;
+    this.emitter.toRoom('focus:summary', { summaries, endedBy });
+  }
+
   // ---------- timer ----------
 
   /** Host or moderator: the tier allowed to drive the shared timer and music. */
@@ -381,8 +480,10 @@ export class RoomRuntime {
     }
 
     if (this.timer !== before) {
+      const endedBy = this.syncFocus(before, action);
       await this.persistTimer();
       this.emitter.toRoom('timer:state', { timer: this.timer, reason: action, by: entry.userId });
+      if (endedBy) this.emitFocusSummary(endedBy);
     }
     this.syncScheduling();
     return this.timer;
@@ -392,7 +493,11 @@ export class RoomRuntime {
     const entry = this.requireHost(socket);
 
     this.settings = { ...this.settings, ...patch };
+    const beforeTimer = this.timer;
     this.timer = applyTimerSettings(this.timer, this.settings);
+    // A settings change never ends a session, but it can stop the phase, so the
+    // tracked windows still have to follow it.
+    this.syncFocus(beforeTimer, 'settings');
     this.touch();
     await this.store
       .saveRoomState(this.roomId, {
@@ -581,9 +686,12 @@ export class RoomRuntime {
       this.syncScheduling();
       return;
     }
-    this.timer = complete(this.timer, this.settings, now);
+    const before = this.timer;
+    this.timer = complete(before, this.settings, now);
+    const endedBy = this.syncFocus(before, 'complete');
     await this.persistTimer();
     this.emitter.toRoom('timer:state', { timer: this.timer, reason: 'complete' });
+    if (endedBy) this.emitFocusSummary(endedBy);
     this.syncScheduling();
   }
 
@@ -652,6 +760,11 @@ export class RoomRuntime {
     return entry.isModerator ? 'mod' : 'member';
   }
 
+  private focusOf(entry: MemberEntry): MemberFocus {
+    const { tracking, away, awaySince, awayCount, awayMs } = entry.focus;
+    return { tracking, away, awaySince, awayCount, awayMs };
+  }
+
   private toMember(entry: MemberEntry): Member {
     return {
       userId: entry.userId,
@@ -662,7 +775,7 @@ export class RoomRuntime {
       isModerator: entry.isModerator,
       role: this.roleOf(entry),
       isMuted: entry.isMuted,
-      focus: { tracking: false, away: false, awaySince: null, awayCount: 0, awayMs: 0 },
+      focus: this.focusOf(entry),
       online: entry.sockets.size > 0,
       joinedAt: entry.joinedAt,
     };
