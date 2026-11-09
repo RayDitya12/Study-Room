@@ -40,11 +40,11 @@ export const TIMER_PRESETS = [
 export const MEDIA = {
   URL_MAX: 200,
   /**
-   * The embed is deliberately tiny: it picks its stream from the size it is
-   * rendered at, and a room that came to work would rather spend the bandwidth
-   * on sound. The disc in the card is the picture people look at.
+   * The whole player, disc and all, in pixels. Small on purpose: an embed
+   * chooses its stream from the size it is rendered at, and a room that came to
+   * work would rather spend the bandwidth on sound.
    */
-  MINI_PLAYER_WIDTH_PX: 112,
+  VINYL_DIAMETER_PX: 88,
   DRIFT_THRESHOLD_MS: 2000,
   DRIFT_CHECK_MS: 5000,
 } as const;

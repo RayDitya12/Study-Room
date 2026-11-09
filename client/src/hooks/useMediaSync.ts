@@ -51,12 +51,13 @@ export function useMediaSync(): MediaSyncState {
   /** YouTube is never mounted into a box that has no size yet. */
   const [laidOut, setLaidOut] = useState(false);
 
-  // The card is rendered as soon as the room snapshot has media, but on a phone
-  // it can still be behind another tab. Watching the box means the player is
-  // built the moment it becomes visible, and never before.
-  const hasContainer = media !== null;
+  // The card is rendered as soon as the room snapshot has media, but the box
+  // itself only exists once there is a video to put in it, and on a phone it can
+  // still be behind another tab. Watching the box means the player is built the
+  // moment it becomes visible, and never before.
+  const hasVideo = media?.videoId != null;
   useEffect(() => {
-    if (!hasContainer) return;
+    if (!hasVideo) return;
     const element = containerRef.current;
     if (!element) return;
     if (typeof ResizeObserver === 'undefined') {
@@ -69,7 +70,7 @@ export function useMediaSync(): MediaSyncState {
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [hasContainer]);
+  }, [hasVideo]);
 
   useEffect(() => {
     if (!media?.videoId || !laidOut) return;

@@ -260,7 +260,6 @@ export const en = {
     noTitle: 'Something is playing',
     listening: 'Listening',
     stopListening: 'Stop listening',
-    notListening: 'You’re not listening',
     addedBy: 'Added by {name}',
     addedByGone: 'Added by someone who has left',
     empty: 'Nothing is playing. Paste a YouTube link and the whole room hears it together.',
@@ -273,8 +272,6 @@ export const en = {
     live: 'Live stream, so there is no position to match.',
     failed: 'The YouTube player could not load. Check your connection and reload.',
     loading: 'Loading the player…',
-    footnote:
-      'The music comes from YouTube through a player kept small on purpose, and the disc is the only picture this card spends. It has no controls of its own — the room’s buttons are all there is. Availability depends on the video’s embedding settings.',
   },
   crash: {
     title: 'This page stopped working',

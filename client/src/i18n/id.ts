@@ -262,7 +262,6 @@ export const id: Messages = {
     noTitle: 'Sedang ada yang diputar',
     listening: 'Mendengar',
     stopListening: 'Berhenti mendengar',
-    notListening: 'Kamu sedang tidak mendengar',
     addedBy: 'Ditambahkan oleh {name}',
     addedByGone: 'Ditambahkan oleh orang yang sudah keluar',
     empty: 'Belum ada yang diputar. Tempel tautan YouTube supaya seluruh ruangan mendengarnya bersama.',
@@ -275,8 +274,6 @@ export const id: Messages = {
     live: 'Siaran langsung, jadi tidak ada posisi yang bisa disamakan.',
     failed: 'Pemutar YouTube gagal dimuat. Periksa koneksi lalu muat ulang.',
     loading: 'Memuat pemutar…',
-    footnote:
-      'Musiknya dari YouTube lewat pemutar yang sengaja dibuat kecil, dan piringan hitam itu satu-satunya gambar yang kartu ini tampilkan. Pemutarnya tidak punya kontrol sendiri — tombol ruangan ini satu-satunya. Ketersediaannya bergantung pada pengaturan tanam video.',
   },
   crash: {
     title: 'Halaman ini berhenti bekerja',

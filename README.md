@@ -364,14 +364,14 @@ client/   react 19 + vite 7 + tailwind 4, zustand stores, media sync engine, i18
   browsers require a gesture before sound. Positions are matched against the server clock and corrected
   when a device drifts more than two seconds, so windows agree to roughly a second, not to the
   millisecond, and a livestream has no position to match at all. The player is an iframe from
-  `youtube-nocookie.com` rendered at 112 px wide, 16:9: an embed chooses its stream from the size it is
-  drawn at, so a tiny player is the difference between buffering and not, and the thing you actually look
-  at is a spinning record made of CSS. The iframe is never `display:none` while it has something to play
-  (a player with no box may never start), it just takes the space of a thumbnail. Its own controls are
-  unreachable (`pointer-events: none`) and the drift check reconciles playback state as well as position,
-  so only the room's buttons decide whether sound is coming out. On a phone the player is only built once
-  the card is actually on screen, so a listener who never opens the Music tab gets it the moment the room
-  starts playing.
+  `youtube-nocookie.com` inside an 88 px circle, and a CSS record covers it: the room hears a video that
+  nobody has to look at. An embed chooses its stream from the size it is rendered at, so the small box is
+  also what keeps the sound from buffering, and the disc cannot simply be left alone — a player in a
+  zero-size box may never report `playing`. Its own controls are unreachable (`pointer-events: none`) and
+  the drift check reconciles playback state as well as position, so the play/pause in the middle of the
+  record is the only thing that decides whether sound is coming out. On a phone the player is only built
+  once the card is actually on screen, so a listener who never opens the Music tab gets it the moment the
+  room starts playing.
 - Rooms are deleted after `ROOM_TTL_DAYS` of inactivity; messages are capped at the last 100 per room.
 - No end-to-end browser tests (Vitest only). Use the two-tab recipe above to check the room page,
   the shared music and the focus summary by hand.

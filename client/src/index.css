@@ -107,11 +107,27 @@ body {
 /* The record is the face of the music bar: it says sound is coming out of this
    tab without spending a single video byte on a picture nobody watches. The
    light wedge is what makes the rotation readable on a round, even object. */
-.vinyl {
+.vinyl-shell {
   position: relative;
   flex: none;
-  width: var(--vinyl-size, 44px);
-  height: var(--vinyl-size, 44px);
+  width: var(--vinyl-size, 88px);
+  height: var(--vinyl-size, 88px);
+}
+
+/* The embed lives inside the disc and is covered by it: the sound of a video,
+   at a size nobody is meant to watch. */
+.vinyl-embed {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--ctp-crust);
+}
+
+.vinyl {
+  position: absolute;
+  inset: 0;
   border-radius: 9999px;
   background:
     conic-gradient(
@@ -131,9 +147,25 @@ body {
 .vinyl::after {
   content: "";
   position: absolute;
-  inset: 34%;
+  inset: 33%;
   border-radius: 9999px;
-  background: radial-gradient(circle, var(--ctp-mantle) 0 22%, var(--ctp-mauve) 23% 100%);
+  background: var(--ctp-mauve);
+}
+
+/* The record's label is the play/pause control, which is where the hand goes
+   for it anyway. */
+.vinyl-button {
+  position: absolute;
+  inset: 33%;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  color: var(--ctp-crust);
+  background: var(--ctp-mauve);
+}
+
+.vinyl-button:hover {
+  filter: brightness(1.1);
 }
 
 .vinyl[data-spin="true"] {

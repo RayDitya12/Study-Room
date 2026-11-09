@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { MEDIA } from '@studyroom/shared';
 import type { ErrorCode } from '@studyroom/shared';
 import { formatRemaining } from '../lib/format';
@@ -24,6 +24,72 @@ export function useMediaControl(): boolean {
     (s) => s.members.find((m) => m.userId === s.youUserId)?.isModerator === true,
   );
   return isHost || isModerator;
+}
+
+function Glyph({
+  children,
+  size = 16,
+  filled = false,
+}: {
+  children: ReactNode;
+  size?: number;
+  filled?: boolean;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke={filled ? 'none' : 'currentColor'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const Play = ({ size }: { size?: number }): ReactNode => (
+  <Glyph size={size} filled>
+    <path d="M8 5.2v13.6L19 12z" />
+  </Glyph>
+);
+
+const Pause = ({ size }: { size?: number }): ReactNode => (
+  <Glyph size={size} filled>
+    <path d="M7 4.5h3.4v15H7zM13.6 4.5H17v15h-3.4z" />
+  </Glyph>
+);
+
+/** The bar's controls are shapes with a name: nothing here needs reading. */
+function IconButton({
+  label,
+  onClick,
+  pressed,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  pressed?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={pressed}
+      className={`shrink-0 rounded-lg p-2 hover:bg-surface0 ${
+        pressed ? 'bg-surface0 text-mauve' : 'text-subtext0'
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
 export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: MusicCardProps) {
@@ -71,6 +137,21 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
     total: formatRemaining(durationMs),
   });
 
+  const run = (action: MediaAction): void => {
+    void onMediaAction(action);
+  };
+
+  // One button in the middle of the record answers the only question that
+  // matters: is this device making sound, or is it waiting to be asked to.
+  const center = blocked
+    ? { label: t('music.join'), run: joinTheMusic, disabled: false }
+    : ended
+      ? { label: t('music.replay'), run: replay, disabled: false }
+      : playing
+        ? { label: t('music.pause'), run: () => run('pause'), disabled: !ready }
+        : { label: t('music.play'), run: () => run('play'), disabled: !ready };
+  const showCenter = hasVideo && (canControl || blocked);
+
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     const value = url.trim();
@@ -91,10 +172,6 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
     const target = dragMs;
     setDragMs(null);
     await onSeek(target);
-  };
-
-  const run = (action: MediaAction): void => {
-    void onMediaAction(action);
   };
 
   return (
@@ -137,154 +214,134 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
         </form>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        {/* Hidden only when there is nothing in it to hear. The width is what
-            keeps the stream cheap, and `pointer-events-none` is what keeps
-            YouTube's own play/pause out of reach: the room has one set. */}
-        <div
-          className={`shrink-0 self-center overflow-hidden rounded-lg bg-crust sm:self-auto ${
-            hasVideo ? 'block pointer-events-none' : 'hidden'
-          }`}
-          style={{ width: MEDIA.MINI_PLAYER_WIDTH_PX, aspectRatio: '16 / 9' }}
-        >
-          <div ref={containerRef} className="h-full w-full" />
-        </div>
+      {!hasVideo ? (
+        canControl ? <p className="text-xs text-subtext0">{t('music.empty')}</p> : null
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          {/* The record is the player rather than a picture beside it: the embed
+              sits inside the circle, the disc covers it, and the only thing a
+              pointer can reach is the room's own button. */}
+          <div
+            className="vinyl-shell self-center sm:self-auto"
+            style={{ '--vinyl-size': `${MEDIA.VINYL_DIAMETER_PX}px` } as CSSProperties}
+          >
+            <div ref={containerRef} className="vinyl-embed" />
+            <span className="vinyl" data-spin={String(spins)} aria-hidden="true" />
+            {showCenter ? (
+              <button
+                type="button"
+                className="vinyl-button"
+                onClick={center.run}
+                disabled={center.disabled}
+                title={center.label}
+                aria-label={center.label}
+              >
+                {playing && !blocked && !ended ? <Pause size={20} /> : <Play size={20} />}
+              </button>
+            ) : null}
+          </div>
 
-        <div className="min-w-0 flex-1">
-          {hasVideo ? (
-            <div className="flex items-center gap-3">
-              <span className="vinyl" data-spin={String(spins)} aria-hidden="true" />
-              {title ? (
-                <p className="min-w-0 flex-1 truncate text-sm text-subtext1" title={title}>
-                  {title}
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="truncate text-sm text-subtext1" title={title ?? undefined}>
+              {title || t('music.noTitle')}
+            </p>
+
+            {seekable ? (
+              <div className="space-y-1">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.round(durationMs / 1000)}
+                  step={1}
+                  value={Math.round(positionMs / 1000)}
+                  disabled={!canControl}
+                  onChange={(event) => {
+                    if (!canControl) return;
+                    setDragMs(Number(event.currentTarget.value) * 1000);
+                  }}
+                  onPointerUp={() => void commitSeek()}
+                  onKeyUp={() => void commitSeek()}
+                  aria-label={positionLabel}
+                  className="w-full accent-mauve disabled:opacity-50"
+                />
+                <p className="text-right font-mono text-xs tabular-nums text-subtext0">
+                  {positionLabel}
                 </p>
-              ) : (
-                <p className="min-w-0 flex-1 text-sm text-subtext0">{t('music.noTitle')}</p>
-              )}
-            </div>
-          ) : null}
-
-          {!hasVideo ? (
-            canControl ? (
-              <p className="text-xs text-subtext0">{t('music.empty')}</p>
-            ) : null
-          ) : (
-            <div className="space-y-3">
-              {seekable ? (
-                <div className="space-y-1">
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.round(durationMs / 1000)}
-                    step={1}
-                    value={Math.round(positionMs / 1000)}
-                    disabled={!canControl}
-                    onChange={(event) => {
-                      if (!canControl) return;
-                      setDragMs(Number(event.currentTarget.value) * 1000);
-                    }}
-                    onPointerUp={() => void commitSeek()}
-                    onKeyUp={() => void commitSeek()}
-                    aria-label={positionLabel}
-                    className="w-full accent-mauve disabled:opacity-50"
-                  />
-                  <p className="text-right font-mono text-xs tabular-nums text-subtext0">
-                    {positionLabel}
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-2">
-                {canControl ? (
-                  <>
-                    <Button
-                      onClick={() => run(playing ? 'pause' : 'play')}
-                      disabled={!ready}
-                      className="min-w-24"
-                    >
-                      {t(playing ? 'music.pause' : 'music.play')}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      aria-pressed={media.loop}
-                      onClick={() => void onSetLoop(!media.loop)}
-                    >
-                      {t('music.loop')}
-                    </Button>
-                    <Button variant="ghost" onClick={() => run('clear')}>
-                      {t('music.clear')}
-                    </Button>
-                  </>
-                ) : null}
-
-                <Button
-                  variant={musicListening ? 'secondary' : 'ghost'}
-                  aria-pressed={musicListening}
-                  onClick={() => setMusicListening(!musicListening)}
-                >
-                  {t(musicListening ? 'music.stopListening' : 'music.listening')}
-                </Button>
               </div>
+            ) : null}
 
-              <label className="block space-y-1">
-                <span className="flex items-center justify-between text-xs text-subtext0">
-                  <span>{t('music.volume')}</span>
-                  <span className="tabular-nums text-text">{musicVolume}</span>
-                </span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={musicVolume}
-                    onChange={(event) => setMusicVolume(Number(event.currentTarget.value))}
-                    aria-label={t('music.volume')}
-                    className="w-full accent-mauve"
-                  />
-                  <button
-                    type="button"
-                    aria-pressed={muted}
-                    onClick={() => setMuted((value) => !value)}
-                    title={t('music.mute')}
-                    aria-label={t('music.mute')}
-                    className={`shrink-0 rounded-lg p-2 hover:bg-surface0 ${
-                      muted ? 'text-red' : 'text-subtext0'
-                    }`}
+            <div className="flex flex-wrap items-center gap-1">
+              {canControl ? (
+                <>
+                  <IconButton
+                    label={t('music.loop')}
+                    pressed={media.loop}
+                    onClick={() => void onSetLoop(!media.loop)}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M11 5 6 9H3v6h3l5 4z" />
-                      {muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 8.5a5 5 0 0 1 0 7" />}
-                    </svg>
-                  </button>
-                </div>
-              </label>
-
-              {blocked ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-surface0/60 p-2">
-                  <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.joinPrompt')}</p>
-                  <Button onClick={joinTheMusic}>{t('music.join')}</Button>
-                </div>
+                    <Glyph>
+                      <path d="m17 2 4 4-4 4" />
+                      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                      <path d="m7 22-4-4 4-4" />
+                      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                    </Glyph>
+                  </IconButton>
+                  <IconButton label={t('music.clear')} onClick={() => run('clear')}>
+                    <Glyph>
+                      <path d="M3 6h18M8 6V3.5h8V6" />
+                      <path d="M5.5 6 7 20.5h10L18.5 6" />
+                    </Glyph>
+                  </IconButton>
+                </>
               ) : null}
 
-              {!musicListening ? <p className="text-xs text-subtext0">{t('music.notListening')}</p> : null}
-              {isLive ? <p className="text-xs text-subtext0">{t('music.live')}</p> : null}
-              {ended ? (
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.ended')}</p>
-                  <Button variant="secondary" onClick={replay}>
-                    {t('music.replay')}
-                  </Button>
-                </div>
-              ) : null}
-              {unplayable ? <p className="text-xs text-red">{t('music.unplayable')}</p> : null}
-              {!ready && !failed ? <p className="text-xs text-subtext0">{t('music.loading')}</p> : null}
-              {failed ? <p className="text-xs text-red">{t('music.failed')}</p> : null}
+              <IconButton
+                label={t(musicListening ? 'music.stopListening' : 'music.listening')}
+                pressed={musicListening}
+                onClick={() => setMusicListening(!musicListening)}
+              >
+                <Glyph>
+                  <path d="M4 15v-3a8 8 0 0 1 16 0v3" />
+                  <path d="M4 15h2.5v5H4a1 1 0 0 1-1-1v-3z" />
+                  <path d="M20 15h-2.5v5H20a1 1 0 0 0 1-1v-3z" />
+                </Glyph>
+              </IconButton>
+
+              <IconButton
+                label={t('music.mute')}
+                pressed={muted}
+                onClick={() => setMuted((value) => !value)}
+              >
+                <Glyph>
+                  <path d="M11 5 6 9H3v6h3l5 4z" />
+                  {muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 8.5a5 5 0 0 1 0 7" />}
+                </Glyph>
+              </IconButton>
+
+              <div className="flex min-w-24 flex-1 items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={musicVolume}
+                  onChange={(event) => setMusicVolume(Number(event.currentTarget.value))}
+                  aria-label={t('music.volume')}
+                  className="w-full accent-mauve"
+                />
+                <span className="w-7 shrink-0 text-right font-mono text-xs tabular-nums text-subtext0">
+                  {musicVolume}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      <p className="text-xs text-overlay0">{t('music.footnote')}</p>
+            {blocked ? <p className="text-xs text-subtext0">{t('music.joinPrompt')}</p> : null}
+            {ended ? <p className="text-xs text-subtext0">{t('music.ended')}</p> : null}
+            {isLive ? <p className="text-xs text-subtext0">{t('music.live')}</p> : null}
+            {unplayable ? <p className="text-xs text-red">{t('music.unplayable')}</p> : null}
+            {!ready && !failed ? <p className="text-xs text-subtext0">{t('music.loading')}</p> : null}
+            {failed ? <p className="text-xs text-red">{t('music.failed')}</p> : null}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
