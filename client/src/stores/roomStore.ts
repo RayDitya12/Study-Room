@@ -3,6 +3,8 @@ import type {
   BlockReason,
   ChatMessage,
   FocusSummaryEvent,
+  MediaState,
+  MediaStateEvent,
   Member,
   RoomSettings,
   RoomSnapshot,
@@ -47,6 +49,8 @@ interface RoomState {
   youUserId: string;
   members: Member[];
   timer: TimerState | null;
+  /** The room's shared video. Null until a snapshot has been seen. */
+  media: MediaState | null;
   messages: MessageItem[];
   /** userId -> local timestamp at which the indicator expires. */
   typing: Record<string, number>;
@@ -66,6 +70,7 @@ interface RoomState {
   hostChanged: (hostUserId: string) => void;
   settingsUpdated: (settings: RoomSettings) => void;
   timerState: (event: TimerStateEvent) => void;
+  mediaState: (event: MediaStateEvent) => void;
   focusSummaryReceived: (event: FocusSummaryEvent | null) => void;
   chatMessage: (message: ChatMessage) => void;
   chatTyping: (userId: string, isTyping: boolean) => void;
@@ -110,6 +115,7 @@ const empty = {
   youUserId: '',
   members: [] as Member[],
   timer: null,
+  media: null as MediaState | null,
   messages: [] as MessageItem[],
   typing: {} as Record<string, number>,
   kicked: null,
@@ -133,6 +139,7 @@ export const useRoomStore = create<RoomState>()((set) => ({
       youUserId: snapshot.you.userId,
       members: snapshot.members,
       timer: snapshot.timer,
+      media: snapshot.media,
       messages: snapshot.messages.map<MessageItem>((message) => ({
         kind: 'chat',
         id: message.id,
@@ -235,6 +242,13 @@ export const useRoomStore = create<RoomState>()((set) => ({
           ? [...s.messages, systemLine('chat.phaseChanged', undefined, event.timer.phase)]
           : s.messages;
       return { timer: event.timer, messages };
+    }),
+
+  // Out-of-order media events are dropped for the same reason as timer ones.
+  mediaState: (event) =>
+    set((s) => {
+      if (s.media && event.media.version < s.media.version) return s;
+      return { media: event.media };
     }),
 
   // Null closes the dialog; the event itself is not a log, so nothing is kept.

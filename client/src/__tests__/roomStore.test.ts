@@ -110,6 +110,32 @@ describe('roomStore', () => {
     expect(useRoomStore.getState().timer?.remainingMs).toBe(10_000);
   });
 
+  it('keeps the video the room is sharing', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    const video = mediaMachine.setVideo(
+      mediaMachine.createInitialMedia(5_000),
+      'dQw4w9WgXcQ',
+      'u1',
+      5_000,
+    );
+    useRoomStore.getState().mediaState({ media: video, reason: 'set', by: 'u1' });
+    expect(useRoomStore.getState().media).toEqual(video);
+  });
+
+  it('never rewinds the video to an older version', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    const video = mediaMachine.setVideo(
+      mediaMachine.createInitialMedia(5_000),
+      'dQw4w9WgXcQ',
+      'u1',
+      5_000,
+    );
+    useRoomStore.getState().mediaState({ media: mediaMachine.pause(video, 6_000), reason: 'pause' });
+    useRoomStore.getState().mediaState({ media: video, reason: 'set', by: 'u1' });
+    expect(useRoomStore.getState().media?.version).toBe(video.version + 1);
+    expect(useRoomStore.getState().media?.status).toBe('paused');
+  });
+
   it('writes a phase line only when the server completed a phase', () => {
     useRoomStore.getState().applySnapshot(snapshot());
     useRoomStore.getState().timerState({ timer: timer({ version: 2 }), reason: 'start' });

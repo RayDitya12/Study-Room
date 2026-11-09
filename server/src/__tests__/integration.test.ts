@@ -3,6 +3,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type {
   BlockedMember,
   ChatMessage,
+  EmptyPayload,
+  FocusSummaryEvent,
+  MediaState,
+  MediaStateEvent,
   Member,
   RoomSettings,
   RoomSnapshot,
@@ -508,5 +512,175 @@ describe('8. time:sync', () => {
     if (!ack.ok) return;
     expect(ack.data.clientSentAt).toBe(sent);
     expect(Math.abs(ack.data.serverNow - Date.now())).toBeLessThan(5_000);
+  });
+});
+
+describe('9. shared music', () => {
+  it('the host chooses the video, everyone hears the same state, members do not', async () => {
+    const hostCid = cid();
+    const code = await server.createRoom({ name: 'Music room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: cid() });
+
+    expect(await emitAck<MediaState>(b, 'media:set', { url: 'https://youtu.be/dQw4w9WgXcQ' })).toEqual({
+      ok: false,
+      error: 'FORBIDDEN',
+    });
+    expect(await emitAck<MediaState>(b, 'media:pause', {})).toEqual({ ok: false, error: 'FORBIDDEN' });
+
+    const onA = nextEvent<MediaStateEvent>(a, 'media:state');
+    const onB = nextEvent<MediaStateEvent>(b, 'media:state');
+    const ack = await emitAck<MediaState>(a, 'media:set', {
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s',
+    });
+    expect(ack.ok).toBe(true);
+    if (!ack.ok) return;
+    // The submitted text is gone; only the parsed id is ever shared.
+    expect(ack.data).toMatchObject({ videoId: 'dQw4w9WgXcQ', status: 'playing', version: 1 });
+
+    const eventA = await onA;
+    expect(await onB).toEqual(eventA);
+    expect(eventA.media).toEqual(ack.data);
+    expect(eventA.reason).toBe('set');
+    expect(eventA.by).toBe(snapB.hostUserId);
+
+    // A moderator owns the music the same way they own the timer.
+    const c = await client();
+    const snapC = await joinRoom(c, { code, nickname: 'Cici', clientId: cid() });
+    expect(
+      (
+        await emitAck<Member>(a, 'member:setModerator', {
+          targetUserId: snapC.you.userId,
+          isModerator: true,
+        })
+      ).ok,
+    ).toBe(true);
+    const seeked = await emitAck<MediaState>(c, 'media:seek', { positionMs: 42_000 });
+    expect(seeked.ok).toBe(true);
+    if (!seeked.ok) return;
+    expect(seeked.data).toMatchObject({ anchorPositionMs: 42_000, status: 'playing', version: 2 });
+
+    // A late joiner is told what is already playing.
+    const d = await client();
+    const snapD = await joinRoom(d, { code, nickname: 'Dewi', clientId: cid() });
+    expect(snapD.media).toMatchObject({ videoId: 'dQw4w9WgXcQ', status: 'playing', version: 2 });
+  });
+
+  it('refuses a link that is not a YouTube video, and music that is not there', async () => {
+    const hostCid = cid();
+    const code = await server.createRoom({ name: 'Bad links', clientId: hostCid });
+    const a = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+
+    expect(await emitAck<MediaState>(a, 'media:set', { url: 'https://evil.example/x' })).toEqual({
+      ok: false,
+      error: 'INVALID_MEDIA_URL',
+    });
+    expect(await emitAck<MediaState>(a, 'media:set', { url: 'https://youtu.be/short' })).toEqual({
+      ok: false,
+      error: 'INVALID_MEDIA_URL',
+    });
+    expect(await emitAck<MediaState>(a, 'media:play', {})).toEqual({ ok: false, error: 'NO_MEDIA' });
+    expect(await emitAck<MediaState>(a, 'media:seek', { positionMs: 1_000 })).toEqual({
+      ok: false,
+      error: 'NO_MEDIA',
+    });
+    expect(await emitAck<MediaState>(a, 'media:seek', { positionMs: -5 })).toEqual({
+      ok: false,
+      error: 'INVALID_INPUT',
+    });
+    // Payloads are strict, so an extra field is never quietly ignored.
+    expect(
+      await emitAck<MediaState>(a, 'media:set', {
+        url: 'https://youtu.be/dQw4w9WgXcQ',
+        html: '<script></script>',
+      } as never),
+    ).toEqual({ ok: false, error: 'INVALID_INPUT' });
+  });
+
+  it('limits how fast one member may drive the music', async () => {
+    const hostCid = cid();
+    const code = await server.createRoom({ name: 'Fast music', clientId: hostCid });
+    const a = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    expect((await emitAck<MediaState>(a, 'media:set', { url: 'dQw4w9WgXcQ' })).ok).toBe(true);
+
+    // Sent at once, so the bucket cannot refill between commands. The bucket
+    // holds six, and media:set already spent one of them.
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        emitAck<MediaState>(a, 'media:setLoop', { loop: i % 2 === 0 }),
+      ),
+    );
+    const outcomes = results.map((r) => (r.ok ? 'ok' : r.error));
+    expect(outcomes.filter((o) => o === 'ok')).toHaveLength(5);
+    expect(outcomes.filter((o) => o === 'RATE_LIMITED')).toHaveLength(3);
+    expect(outcomes[7]).toBe('RATE_LIMITED');
+  });
+});
+
+describe('10. focus tracking', () => {
+  it('counts away intervals for the room and summarises the session', async () => {
+    const hostCid = cid();
+    const guestCid = cid();
+    const code = await server.createRoom({ name: 'Focus room', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: guestCid });
+
+    expect((await emitAck<Member>(a, 'focus:setTracking', { enabled: true })).ok).toBe(true);
+    expect((await emitAck<Member>(b, 'focus:setTracking', { enabled: true })).ok).toBe(true);
+    expect((await emitAck<TimerState>(a, 'timer:start', {})).ok).toBe(true);
+
+    const awaySeen = nextEvent<Member>(a, 'member:updated');
+    expect((await emitAck<EmptyPayload>(b, 'focus:state', { away: true })).ok).toBe(true);
+    expect(await awaySeen).toMatchObject({
+      userId: snapB.you.userId,
+      focus: { tracking: true, away: true, awayCount: 1, awaySince: expect.any(Number) },
+    });
+
+    await sleep(300);
+    const backSeen = nextEvent<Member>(a, 'member:updated');
+    expect((await emitAck<EmptyPayload>(b, 'focus:state', { away: false })).ok).toBe(true);
+    const back = await backSeen;
+    expect(back.focus).toMatchObject({ away: false, awayCount: 1, awaySince: null });
+    expect(back.focus.awayMs).toBeGreaterThanOrEqual(200);
+
+    const summary = nextEvent<FocusSummaryEvent>(a, 'focus:summary');
+    expect((await emitAck<TimerState>(a, 'timer:skip', {})).ok).toBe(true);
+    const event = await summary;
+    expect(event.endedBy).toBe('skip');
+    const reported = event.summaries.find((s) => s.userId === snapB.you.userId);
+    expect(reported).toMatchObject({ nickname: 'Budi', awayCount: 1 });
+    expect(reported?.focusPct).toBeGreaterThanOrEqual(0);
+    expect(reported?.focusPct).toBeLessThanOrEqual(100);
+
+    // The summary is not a log: the next session starts from zero for everyone.
+    const reset = await emitAck<Member>(b, 'focus:setTracking', { enabled: true });
+    expect(reset.ok).toBe(true);
+    if (!reset.ok) return;
+    expect(reset.data.focus).toMatchObject({ tracking: true, away: false, awayCount: 0, awayMs: 0 });
+  });
+
+  it('away reports need opt-in, and opt-in is always your own', async () => {
+    const hostCid = cid();
+    const code = await server.createRoom({ name: 'Quiet focus', clientId: hostCid });
+    const a = await client();
+    const b = await client();
+    const snapA = await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
+    await joinRoom(b, { code, nickname: 'Budi', clientId: cid() });
+
+    expect(await emitAck<EmptyPayload>(b, 'focus:state', { away: true })).toEqual({
+      ok: false,
+      error: 'FORBIDDEN',
+    });
+    // There is no target field to send: the payload cannot name anybody else.
+    expect(
+      await emitAck<Member>(a, 'focus:setTracking', { userId: 'someone', enabled: true } as never),
+    ).toEqual({ ok: false, error: 'INVALID_INPUT' });
+    expect(snapA.members[0]?.focus).toMatchObject({ tracking: false, away: false, awayCount: 0 });
   });
 });

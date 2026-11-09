@@ -6,6 +6,8 @@ import type {
   EmptyPayload,
   ErrorCode,
   FocusSummaryEvent,
+  MediaState,
+  MediaStateEvent,
   Member,
   MemberStatus,
   RoomSettings,
@@ -30,6 +32,9 @@ import type { Translate } from '../i18n';
 
 export type TimerAction = 'start' | 'pause' | 'reset' | 'skip';
 
+/** The music commands a controller may send; `set`, `seek` and `setLoop` are separate. */
+export type MediaAction = 'play' | 'pause' | 'clear';
+
 export type JoinResult = { ok: true } | { ok: false; error: ErrorCode };
 
 export interface RoomActions {
@@ -47,6 +52,14 @@ export interface RoomActions {
   ban: (targetUserId: string) => Promise<boolean>;
   unban: (targetUserId: string) => Promise<boolean>;
   getBlocks: () => Promise<BlockedMember[] | null>;
+  /**
+   * Controller only. Resolves with null on success, or the error code — an
+   * invalid link is shown under the input rather than as a toast.
+   */
+  setMedia: (url: string) => Promise<ErrorCode | null>;
+  mediaAction: (action: MediaAction) => Promise<void>;
+  seekMedia: (positionMs: number) => Promise<void>;
+  setMediaLoop: (loop: boolean) => Promise<void>;
   /** Self only: opt in or out of focus tracking. */
   setFocusTracking: (enabled: boolean) => Promise<boolean>;
   /** Self only, fire and forget: the tab went hidden or came back. */
@@ -164,6 +177,9 @@ export function useRoomConnection(code: string): {
     );
     socket.on('focus:summary', (event: FocusSummaryEvent) =>
       useRoomStore.getState().focusSummaryReceived(event),
+    );
+    socket.on('media:state', (event: MediaStateEvent) =>
+      useRoomStore.getState().mediaState(event),
     );
     socket.on('timer:state', (event) => {
       useRoomStore.getState().timerState(event);
@@ -316,6 +332,30 @@ export function useRoomConnection(code: string): {
         run<Member>((socket, cb) => socket.emit('focus:setTracking', { enabled }, cb)),
       sendFocusState: (away) => {
         socketRef.current?.emit('focus:state', { away }, () => undefined);
+      },
+      setMedia: async (url) => {
+        const res = await request<MediaState>((socket, cb) => socket.emit('media:set', { url }, cb));
+        if (res.ok) return null;
+        // A bad link is the input's own problem; everything else is a toast.
+        if (res.error !== 'INVALID_MEDIA_URL') notifyError(res.error);
+        return res.error;
+      },
+      mediaAction: async (action) => {
+        const event = `media:${action}` as const;
+        const res = await request<MediaState>((socket, cb) => socket.emit(event, {}, cb));
+        if (!res.ok) notifyError(res.error);
+      },
+      seekMedia: async (positionMs) => {
+        const res = await request<MediaState>((socket, cb) =>
+          socket.emit('media:seek', { positionMs }, cb),
+        );
+        if (!res.ok) notifyError(res.error);
+      },
+      setMediaLoop: async (loop) => {
+        const res = await request<MediaState>((socket, cb) =>
+          socket.emit('media:setLoop', { loop }, cb),
+        );
+        if (!res.ok) notifyError(res.error);
       },
     }),
     [notifyError, request, run],

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { KICK_COOLDOWN_MS } from '@studyroom/shared';
+import { KICK_COOLDOWN_MS, mediaMachine } from '@studyroom/shared';
 import type { RoomSettings, TimerStateEvent } from '@studyroom/shared';
 import type { Clock, TimeoutHandle } from '../lib/clock';
 import { createMemoryStore } from '../store/memoryStore';
@@ -480,6 +480,174 @@ describe('media state carried by the room', () => {
       status: 'paused',
       loop: true,
       anchorPositionMs: 0,
+    });
+  });
+
+  async function hostWithMusic() {
+    const ctx = await makeRuntime();
+    const hostSock = fakeSocket('s1');
+    const hostSnap = await ctx.runtime.join(hostSock, {
+      nickname: 'Anna',
+      clientId: hostCid,
+      ip: '1.2.3.4',
+    });
+    const media = await ctx.runtime.setMedia(hostSock, 'https://youtu.be/dQw4w9WgXcQ');
+    return { ...ctx, hostSock, hostUserId: hostSnap.you.userId, media };
+  }
+
+  it('the host can add a video, and only the parsed id is kept', async () => {
+    const { runtime, media, hostUserId, events } = await hostWithMusic();
+    expect(media).toMatchObject({
+      videoId: 'dQw4w9WgXcQ',
+      status: 'playing',
+      anchorPositionMs: 0,
+      setBy: hostUserId,
+      version: 1,
+    });
+    expect(events.find((e) => e.event === 'media:state')?.args[0]).toMatchObject({
+      media,
+      reason: 'set',
+      by: hostUserId,
+    });
+
+    const snap = await runtime.snapshotFor(hostCid);
+    expect(snap.media).toEqual(media);
+  });
+
+  it('a link that is not an embeddable YouTube video is refused', async () => {
+    const { runtime, hostSock } = await hostWithMusic();
+    for (const url of [
+      'https://vimeo.com/12345',
+      'https://youtube.com/playlist?list=PL1234567890',
+      'javascript:alert(1)',
+      'dQw4w9WgXc',
+    ]) {
+      await expect(runtime.setMedia(hostSock, url)).rejects.toMatchObject({
+        code: 'INVALID_MEDIA_URL',
+      });
+    }
+  });
+
+  it('only a controller may change the music, and a moderator is one', async () => {
+    const { runtime, hostSock } = await hostWithMusic();
+    const guestSock = fakeSocket('s2');
+    const guestSnap = await runtime.join(guestSock, {
+      nickname: 'Budi',
+      clientId: guestCid,
+      ip: '1.2.3.4',
+    });
+
+    await expect(runtime.setMedia(guestSock, 'https://youtu.be/oHg5SJYRHA0')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(runtime.mediaAction(guestSock, 'pause')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(runtime.seekMedia(guestSock, 30_000)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    runtime.setModerator(hostSock, guestSnap.you.userId, true);
+    const paused = await runtime.mediaAction(guestSock, 'pause');
+    expect(paused).toMatchObject({ status: 'paused', version: 2 });
+    // A pause freezes the playhead wherever the server clock left it.
+    expect(paused.anchorPositionMs).toBe(0);
+    expect((await runtime.mediaAction(guestSock, 'play')).status).toBe('playing');
+    expect((await runtime.setMediaLoop(guestSock, true)).loop).toBe(true);
+  });
+
+  it('a position is measured by the server clock, not reported by a client', async () => {
+    const { runtime, clock, hostSock } = await hostWithMusic();
+    clock.advance(40_000);
+    const paused = await runtime.mediaAction(hostSock, 'pause');
+    expect(paused.anchorPositionMs).toBe(40_000);
+    clock.advance(10_000);
+    // Paused is paused: the wall clock keeps moving, the playhead does not.
+    expect(mediaMachine.positionAt(paused, clock.now())).toBe(40_000);
+
+    const resumed = await runtime.mediaAction(hostSock, 'play');
+    expect(resumed.anchorPositionMs).toBe(40_000);
+    expect(mediaMachine.positionAt(resumed, clock.now())).toBe(40_000);
+
+    const seeked = await runtime.seekMedia(hostSock, 5_000);
+    expect(seeked.anchorPositionMs).toBe(5_000);
+    expect(seeked.status).toBe('playing');
+  });
+
+  it('commands without a video in the room are refused', async () => {
+    const { runtime } = await makeRuntime();
+    const sock = fakeSocket('s1');
+    await runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    await expect(runtime.mediaAction(sock, 'play')).rejects.toMatchObject({ code: 'NO_MEDIA' });
+    await expect(runtime.mediaAction(sock, 'pause')).rejects.toMatchObject({ code: 'NO_MEDIA' });
+    await expect(runtime.seekMedia(sock, 1_000)).rejects.toMatchObject({ code: 'NO_MEDIA' });
+    // Clearing nothing is a no-op rather than an error.
+    expect(await runtime.mediaAction(sock, 'clear')).toMatchObject({ status: 'stopped' });
+  });
+
+  it('a redundant command changes nothing and tells nobody', async () => {
+    const { runtime, hostSock, events } = await hostWithMusic();
+    await runtime.mediaAction(hostSock, 'play');
+    const mark = events.length;
+    // Already playing: the machine returns the same state, so no event.
+    expect(await runtime.mediaAction(hostSock, 'play')).toMatchObject({ version: 1 });
+    expect(events.slice(mark)).toHaveLength(0);
+
+    const cleared = await runtime.mediaAction(hostSock, 'clear');
+    expect(cleared).toMatchObject({ videoId: null, status: 'stopped', version: 2 });
+    await runtime.mediaAction(hostSock, 'clear');
+    expect(events.slice(mark).filter((e) => e.event === 'media:state')).toHaveLength(1);
+  });
+
+  it('music stops when the last person leaves', async () => {
+    const { runtime, clock } = await makeRuntime({}, 500);
+    const sock = fakeSocket('s1');
+    await runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    await runtime.setMedia(sock, 'https://youtu.be/dQw4w9WgXcQ');
+    expect(runtime.media.status).toBe('playing');
+
+    runtime.disconnectSocket(sock);
+    clock.advance(500);
+    await flush();
+    expect(runtime.media).toMatchObject({ status: 'paused', videoId: 'dQw4w9WgXcQ' });
+  });
+
+  it('media commands are rate limited per member, not per socket', async () => {
+    const { runtime, clock, hostSock } = await hostWithMusic();
+    // setMedia already spent one of the six.
+    for (let i = 0; i < 5; i += 1) {
+      await runtime.setMediaLoop(hostSock, i % 2 === 0);
+    }
+    await expect(runtime.setMediaLoop(hostSock, true)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+
+    clock.advance(10_000);
+    expect((await runtime.setMediaLoop(hostSock, true)).loop).toBe(true);
+  });
+
+  it('the video and the loop choice are remembered, the playhead is not', async () => {
+    const ctx = await makeRuntime();
+    const sock = fakeSocket('s1');
+    await ctx.runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    await ctx.runtime.setMedia(sock, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s');
+    ctx.clock.advance(20_000);
+    await ctx.runtime.seekMedia(sock, 90_000);
+    await ctx.runtime.setMediaLoop(sock, true);
+    await flush();
+
+    const stored = await ctx.store.getByCode('ABC234');
+    expect(stored).toMatchObject({ mediaVideoId: 'dQw4w9WgXcQ', mediaLoop: true });
+    if (!stored) throw new Error('room disappeared');
+
+    const reloaded = new RoomRuntime({
+      stored,
+      store: ctx.store,
+      clock: ctx.clock,
+      emitter: createRecordingEmitter().emitter,
+      presenceGraceMs: 1_000,
+      maxMembers: 30,
+    });
+    expect(reloaded.media).toMatchObject({
+      videoId: 'dQw4w9WgXcQ',
+      status: 'paused',
+      loop: true,
+      anchorPositionMs: 0,
+      setBy: null,
     });
   });
 });

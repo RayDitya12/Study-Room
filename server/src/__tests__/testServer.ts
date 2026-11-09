@@ -1,9 +1,12 @@
 import { createServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import bcrypt from 'bcryptjs';
 import { io as connect, type Socket as ClientSocket } from 'socket.io-client';
 import type { Ack, ClientToServerEvents, RoomSnapshot, ServerToClientEvents } from '@studyroom/shared';
+import { roomSettingsInputSchema } from '@studyroom/shared';
 import { createApp } from '../app';
 import { systemClock } from '../lib/clock';
+import { generateRoomCode } from '../lib/ids';
 import { RoomManager } from '../rooms/RoomManager';
 import { createMemoryStore } from '../store/memoryStore';
 import type { RoomStore } from '../store/RoomStore';
@@ -63,13 +66,23 @@ export async function startTestServer(options: { presenceGraceMs?: number } = {}
     httpServer,
     roomManager,
     async createRoom(body) {
-      const res = await fetch(`${url}/api/rooms`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.status !== 201) throw new Error(`createRoom failed: ${res.status}`);
-      return ((await res.json()) as { code: string }).code;
+      // The rooms here are a fixture, not the thing under test: they are written
+      // straight to the store, so a long suite never runs into the 20-creates-a-
+      // minute limit that REST itself is checked against in rest.test.ts.
+      const settings = roomSettingsInputSchema.parse(body.settings ?? {});
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const code = generateRoomCode();
+        if (await store.codeExists(code)) continue;
+        await store.createRoom({
+          code,
+          name: body.name,
+          passwordHash: body.password ? await bcrypt.hash(body.password, 10) : null,
+          hostClientId: body.clientId,
+          settings,
+        });
+        return code;
+      }
+      throw new Error('could not make a room code');
     },
     connectClient() {
       return new Promise<TestClient>((resolve, reject) => {

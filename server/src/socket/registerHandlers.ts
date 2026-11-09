@@ -5,6 +5,9 @@ import {
   focusSetTrackingPayloadSchema,
   focusStatePayloadSchema,
   joinRoomPayloadSchema,
+  mediaLoopPayloadSchema,
+  mediaSeekPayloadSchema,
+  mediaSetPayloadSchema,
   memberTargetPayloadSchema,
   memberUpdatePayloadSchema,
   roomSettingsPatchSchema,
@@ -13,6 +16,7 @@ import {
   timeSyncPayloadSchema,
   transferHostPayloadSchema,
   type ClientToServerEvents,
+  type MediaState,
   type ServerToClientEvents,
   type TimerState,
   type EmptyPayload,
@@ -144,6 +148,29 @@ export function registerHandlers(
     socket.on(
       'room:getBlocks',
       handle(emptyPayloadSchema, (_payload, s) => runtimeOf(s).listBlocks(s)),
+    );
+
+    socket.on(
+      'media:set',
+      handle(mediaSetPayloadSchema, (payload, s) => runtimeOf(s).setMedia(s, payload.url)),
+    );
+
+    const mediaHandler = (action: 'play' | 'pause' | 'clear') =>
+      handle(emptyPayloadSchema, (_payload, s): Promise<MediaState> =>
+        runtimeOf(s).mediaAction(s, action),
+      );
+    socket.on('media:play', mediaHandler('play'));
+    socket.on('media:pause', mediaHandler('pause'));
+    socket.on('media:clear', mediaHandler('clear'));
+
+    socket.on(
+      'media:seek',
+      handle(mediaSeekPayloadSchema, (payload, s) => runtimeOf(s).seekMedia(s, payload.positionMs)),
+    );
+
+    socket.on(
+      'media:setLoop',
+      handle(mediaLoopPayloadSchema, (payload, s) => runtimeOf(s).setMediaLoop(s, payload.loop)),
     );
 
     socket.on(

@@ -5,6 +5,7 @@ import {
   KICK_COOLDOWN_MS,
   LIMITS,
   mediaMachine,
+  parseYouTubeVideoId,
   pause as pauseTimer,
   reset as resetTimer,
   skip as skipTimer,
@@ -14,6 +15,7 @@ import {
   type ChatMessage,
   type FocusEndReason,
   type FocusSessionSummary,
+  type MediaChangeReason,
   type MediaState,
   type Member,
   type MemberFocus,
@@ -89,6 +91,8 @@ export interface RoomRuntimeDeps {
 
 export type TimerAction = 'start' | 'pause' | 'reset' | 'skip';
 
+export type MediaAction = 'play' | 'pause' | 'clear';
+
 /** The timer changes that close a focus session; a pause never does. */
 function focusEndReason(reason: TimerChangeReason): FocusEndReason | null {
   return reason === 'complete' || reason === 'skip' || reason === 'reset' ? reason : null;
@@ -126,6 +130,9 @@ export class RoomRuntime {
   private readonly typingLimiter: RateLimiter;
   // 10 away reports per 10 seconds per socket; extras are silently dropped.
   private readonly focusLimiter: RateLimiter;
+  // 6 media commands per 10 seconds per clientId: one person must not be able to
+  // restart the room's video by holding down a key.
+  private readonly mediaLimiter: RateLimiter;
   // 5 wrong-password failures per minute per IP+room.
   private readonly passwordFailures: FailureLimiter;
 
@@ -156,6 +163,7 @@ export class RoomRuntime {
     this.chatLimiter = createRateLimiter({ capacity: 5, refillPerMs: 1 / 1_000, clock });
     this.typingLimiter = createRateLimiter({ capacity: 10, refillPerMs: 10 / 1_000, clock });
     this.focusLimiter = createRateLimiter({ capacity: 10, refillPerMs: 10 / 10_000, clock });
+    this.mediaLimiter = createRateLimiter({ capacity: 6, refillPerMs: 6 / 10_000, clock });
     this.passwordFailures = createFailureLimiter(5, 60_000, clock);
   }
 
@@ -306,11 +314,16 @@ export class RoomRuntime {
       }
     }
 
-    if (this.members.size === 0 && this.timer.status === 'running') {
-      // Empty room: pause so time doesn't silently expire while nobody watches.
-      this.timer = pauseTimer(this.timer, this.clock.now());
-      this.clearPhaseTimeout();
-      await this.persistTimer();
+    if (this.members.size === 0) {
+      if (this.timer.status === 'running') {
+        // Empty room: pause so time doesn't silently expire while nobody watches.
+        this.timer = pauseTimer(this.timer, this.clock.now());
+        this.clearPhaseTimeout();
+        await this.persistTimer();
+      }
+      // Music nobody can hear is only bandwidth. The status is not persisted, so
+      // a reloaded room offers the same video paused anyway.
+      this.media = mediaMachine.pause(this.media, this.clock.now());
     }
     this.touch();
   }
@@ -599,6 +612,86 @@ export class RoomRuntime {
     return [...this.blocks.entries()]
       .filter(([, block]) => block.expiresAt === null || block.expiresAt > now)
       .map(([userId, block]) => ({ userId, ...block }));
+  }
+
+  // ---------- media ----------
+
+  /**
+   * The room's one shared video, exactly like the room's one shared timer: the
+   * server owns the state, positions come from its clock, and only a controller
+   * may change it.
+   */
+  async setMedia(socket: RuntimeSocket, url: string): Promise<MediaState> {
+    const entry = this.requireMediaControl(socket);
+    const videoId = parseYouTubeVideoId(url);
+    // Only the parsed id is ever stored or broadcast, never the submitted text.
+    if (!videoId) throw new AppError('INVALID_MEDIA_URL');
+    const now = this.clock.now();
+    return this.commitMedia(mediaMachine.setVideo(this.media, videoId, entry.userId, now), 'set', entry.userId);
+  }
+
+  async mediaAction(socket: RuntimeSocket, action: MediaAction): Promise<MediaState> {
+    const entry = this.requireMediaControl(socket);
+    if (action !== 'clear' && this.media.videoId === null) throw new AppError('NO_MEDIA');
+    const now = this.clock.now();
+    const next =
+      action === 'play'
+        ? mediaMachine.play(this.media, now)
+        : action === 'pause'
+          ? mediaMachine.pause(this.media, now)
+          : mediaMachine.clear(this.media);
+    return this.commitMedia(next, action, entry.userId);
+  }
+
+  async seekMedia(socket: RuntimeSocket, positionMs: number): Promise<MediaState> {
+    const entry = this.requireMediaControl(socket);
+    if (this.media.videoId === null) throw new AppError('NO_MEDIA');
+    return this.commitMedia(
+      mediaMachine.seek(this.media, positionMs, this.clock.now()),
+      'seek',
+      entry.userId,
+    );
+  }
+
+  async setMediaLoop(socket: RuntimeSocket, loop: boolean): Promise<MediaState> {
+    const entry = this.requireMediaControl(socket);
+    return this.commitMedia(mediaMachine.setLoop(this.media, loop), 'loop', entry.userId);
+  }
+
+  /** Controller plus rate limit: the same tier that drives the timer owns the music. */
+  private requireMediaControl(socket: RuntimeSocket): MemberEntry {
+    const entry = this.requireMember(socket);
+    if (!this.canControl(entry.clientId)) throw new AppError('FORBIDDEN');
+    if (!this.mediaLimiter.allow(entry.clientId)) throw new AppError('RATE_LIMITED');
+    return entry;
+  }
+
+  /**
+   * Commits a machine-produced media state. Unchanged state is neither stored
+   * nor broadcast, so a redundant click cannot bump anyone's version counter.
+   */
+  private async commitMedia(
+    next: MediaState,
+    reason: MediaChangeReason,
+    by: string,
+  ): Promise<MediaState> {
+    const before = this.media;
+    if (next === before) return before;
+    this.media = next;
+    this.touch();
+    // The playhead is deliberately never persisted; only the video and the loop
+    // choice outlive a restart.
+    if (next.videoId !== before.videoId || next.loop !== before.loop) {
+      await this.store
+        .saveRoomState(this.roomId, {
+          mediaVideoId: next.videoId,
+          mediaLoop: next.loop,
+          lastActiveAt: this.clock.now(),
+        })
+        .catch((err) => console.error('[room] failed to persist media:', err));
+    }
+    this.emitter.toRoom('media:state', { media: next, reason, by });
+    return next;
   }
 
   private async blockTarget(targetUserId: string, reason: BlockReason): Promise<void> {

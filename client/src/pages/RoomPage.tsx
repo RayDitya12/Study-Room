@@ -22,15 +22,27 @@ import { FocusSummaryDialog } from '../components/FocusSummaryDialog';
 import { JoinDialog } from '../components/JoinDialog';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { MemberList } from '../components/MemberList';
+import { MusicCard, useMediaControl } from '../components/MusicCard';
 import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 import { SoundToggle } from '../components/SoundToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { TimerCard } from '../components/TimerCard';
 
-type Tab = 'timer' | 'members' | 'chat';
+type Tab = 'timer' | 'members' | 'chat' | 'music';
 
 const panel = (active: boolean): string =>
   `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex`;
+
+/** Same as `panel`, plus the stretch a card needs now that it shares a column. */
+const columnPanel = (active: boolean): string =>
+  `${active ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:flex`;
+
+/**
+ * The music card never collapses below its own height: `grown` is the mobile
+ * tab, where it may fill the column, while on desktop it sits under the timer.
+ */
+const musicPanel = (active: boolean, grown: boolean): string =>
+  `${active ? 'flex' : 'hidden'} min-h-0 flex-col ${grown ? 'flex-1' : 'shrink-0'} lg:flex lg:shrink-0`;
 
 export function RoomPage() {
   const { code: rawCode } = useParams<{ code: string }>();
@@ -56,6 +68,13 @@ export function RoomPage() {
   const settings = useRoomStore((s) => s.settings);
   const focusTracking = usePrefsStore((s) => s.focusTracking);
   const setFocusTracking = usePrefsStore((s) => s.setFocusTracking);
+  const musicListening = usePrefsStore((s) => s.musicListening);
+  const media = useRoomStore((s) => s.media);
+  const canControlMedia = useMediaControl();
+  const showMusic = canControlMedia || (media?.videoId ?? null) !== null;
+  // An embed that is making sound may not be hidden, so the card stays on
+  // screen while the room is playing and this device is listening.
+  const musicHeard = media?.status === 'playing' && musicListening;
   const strictFocus = settings?.strictFocus === true;
   const [consentAsked, setConsentAsked] = useState(false);
   useNow(1_000);
@@ -201,13 +220,26 @@ export function RoomPage() {
           </div>
         </div>
 
-        <div className={panel(tab === 'timer')}>
-          <div className="min-h-0 flex-1">
-            <TimerCard
-              onTimerAction={actions.timerAction}
-              onUpdateSettings={actions.updateSettings}
-            />
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+          <div className={columnPanel(tab === 'timer')}>
+            <div className="min-h-0 flex-1">
+              <TimerCard
+                onTimerAction={actions.timerAction}
+                onUpdateSettings={actions.updateSettings}
+              />
+            </div>
           </div>
+
+          {showMusic ? (
+            <div className={musicPanel(tab === 'music' || musicHeard, tab === 'music')}>
+              <MusicCard
+                onSetMedia={actions.setMedia}
+                onMediaAction={actions.mediaAction}
+                onSeek={actions.seekMedia}
+                onSetLoop={actions.setMediaLoop}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className={panel(tab === 'chat')}>
@@ -222,13 +254,14 @@ export function RoomPage() {
 
       <nav
         aria-label={t('app.title')}
-        className="grid grid-cols-3 border-t border-surface0 bg-base lg:hidden"
+        className="grid grid-cols-4 border-t border-surface0 bg-base lg:hidden"
       >
         {(
           [
             ['timer', t('room.timerTab')],
             ['members', t('room.membersTab')],
             ['chat', t('room.chatTab')],
+            ['music', t('room.musicTab')],
           ] as [Tab, string][]
         ).map(([value, label]) => (
           <button
@@ -243,6 +276,9 @@ export function RoomPage() {
             {label}
             {value === 'chat' && unread > 0 ? (
               <span className="absolute right-1/4 top-2 h-2 w-2 rounded-full bg-red" />
+            ) : null}
+            {value === 'music' && showMusic && musicHeard && tab !== 'music' ? (
+              <span className="absolute right-1/4 top-2 h-2 w-2 rounded-full bg-teal" />
             ) : null}
           </button>
         ))}
