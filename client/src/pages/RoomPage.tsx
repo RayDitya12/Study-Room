@@ -33,16 +33,13 @@ type Tab = 'timer' | 'members' | 'chat' | 'music';
 const panel = (active: boolean): string =>
   `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex`;
 
-/** Same as `panel`, plus the stretch a card needs now that it shares a column. */
-const columnPanel = (active: boolean): string =>
-  `${active ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col lg:flex`;
-
 /**
- * The music card never collapses below its own height: `grown` is the mobile
- * tab, where it may fill the column, while on desktop it sits under the timer.
+ * The middle column scrolls, so its cards are content-sized. A `flex-1` card in
+ * a scrollable column gets squeezed to the viewport height, overflows it by a
+ * few pixels, and leaves behind a scrollbar with almost nothing to move.
  */
-const musicPanel = (active: boolean, grown: boolean): string =>
-  `${active ? 'flex' : 'hidden'} min-h-0 flex-col ${grown ? 'flex-1' : 'shrink-0'} lg:flex lg:shrink-0`;
+const cardPanel = (active: boolean): string =>
+  `${active ? 'flex' : 'hidden'} shrink-0 flex-col lg:flex`;
 
 export function RoomPage() {
   const { code: rawCode } = useParams<{ code: string }>();
@@ -221,17 +218,15 @@ export function RoomPage() {
         </div>
 
         <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-          <div className={columnPanel(tab === 'timer')}>
-            <div className="min-h-0 flex-1">
-              <TimerCard
-                onTimerAction={actions.timerAction}
-                onUpdateSettings={actions.updateSettings}
-              />
-            </div>
+          <div className={cardPanel(tab === 'timer')}>
+            <TimerCard
+              onTimerAction={actions.timerAction}
+              onUpdateSettings={actions.updateSettings}
+            />
           </div>
 
           {showMusic ? (
-            <div className={musicPanel(tab === 'music' || musicHeard, tab === 'music')}>
+            <div className={cardPanel(tab === 'music' || musicHeard)}>
               <MusicCard
                 onSetMedia={actions.setMedia}
                 onMediaAction={actions.mediaAction}

@@ -259,8 +259,7 @@ export const id: Messages = {
     loop: 'Ulangi',
     volume: 'Volume musik',
     mute: 'Bisukan',
-    cover: 'Tampilkan sampul',
-    coverOff: 'Sembunyikan sampul',
+    noTitle: 'Sedang ada yang diputar',
     listening: 'Mendengar',
     stopListening: 'Berhenti mendengar',
     notListening: 'Kamu sedang tidak mendengar',
@@ -277,7 +276,7 @@ export const id: Messages = {
     failed: 'Pemutar YouTube gagal dimuat. Periksa koneksi lalu muat ulang.',
     loading: 'Memuat pemutar…',
     footnote:
-      'Musiknya dari YouTube, tapi gambar di sini cuma gambar: tidak punya kontrol sendiri, dan ukurannya sengaja kecil supaya bandwidth-nya untuk suara. Ketersediaannya bergantung pada pengaturan tanam video.',
+      'Musiknya dari YouTube lewat pemutar yang sengaja dibuat kecil, dan piringan hitam itu satu-satunya gambar yang kartu ini tampilkan. Pemutarnya tidak punya kontrol sendiri — tombol ruangan ini satu-satunya. Ketersediaannya bergantung pada pengaturan tanam video.',
   },
   crash: {
     title: 'Halaman ini berhenti bekerja',

@@ -39,13 +39,12 @@ export const TIMER_PRESETS = [
 
 export const MEDIA = {
   URL_MAX: 200,
-  MIN_PLAYER_HEIGHT_PX: 200,
   /**
-   * The default bar is deliberately small: the embed picks its stream from the
-   * size it is drawn at, so a compact player costs fewer bytes than a
-   * full-width one — which matters more than a big picture during a focus run.
+   * The embed is deliberately tiny: it picks its stream from the size it is
+   * rendered at, and a room that came to work would rather spend the bandwidth
+   * on sound. The disc in the card is the picture people look at.
    */
-  MINI_PLAYER_WIDTH_PX: 144,
+  MINI_PLAYER_WIDTH_PX: 112,
   DRIFT_THRESHOLD_MS: 2000,
   DRIFT_CHECK_MS: 5000,
 } as const;

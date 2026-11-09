@@ -18,8 +18,8 @@ waiting for you.
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
 - Shared music: a host or moderator pastes a YouTube link and the whole room plays the same video at
-  the same position, with play, seek, loop and clear in sync. The picture is a small bar (or a still
-  cover) rather than a window, because this is a room for working
+  the same position, with play, seek, loop and clear in sync. What the room sees is a bar with a small
+  spinning record, not a video window, because this is a room for working
 - Phase-change chime synthesised with WebAudio (no audio files), sound toggle and a picker for 10 chime
   voices, saved per device
 - Ambient noise (white, pink, brown, rain, waves) synthesised locally, with a volume slider and an
@@ -364,14 +364,14 @@ client/   react 19 + vite 7 + tailwind 4, zustand stores, media sync engine, i18
   browsers require a gesture before sound. Positions are matched against the server clock and corrected
   when a device drifts more than two seconds, so windows agree to roughly a second, not to the
   millisecond, and a livestream has no position to match at all. The player is an iframe from
-  `youtube-nocookie.com`, drawn small on purpose (a 16:9 bar 144 px wide): an embed picks its stream from
-  the size it is rendered at, so a compact player is the difference between buffering and not. It stays
-  on screen while it has something to play, and `Show cover` puts a still of the video above it for the
-  people who would rather look at a wall. The iframe has no controls of its own — `pointer-events` are
-  off, and the drift check restarts it if it ever falls out of playback on its own — so the room's
-  buttons are the only thing that decides whether sound is coming out. On a phone the player is only
-  built once the card is actually on screen, so a listener who never opens the Music tab gets it the
-  moment the room starts playing.
+  `youtube-nocookie.com` rendered at 112 px wide, 16:9: an embed chooses its stream from the size it is
+  drawn at, so a tiny player is the difference between buffering and not, and the thing you actually look
+  at is a spinning record made of CSS. The iframe is never `display:none` while it has something to play
+  (a player with no box may never start), it just takes the space of a thumbnail. Its own controls are
+  unreachable (`pointer-events: none`) and the drift check reconciles playback state as well as position,
+  so only the room's buttons decide whether sound is coming out. On a phone the player is only built once
+  the card is actually on screen, so a listener who never opens the Music tab gets it the moment the room
+  starts playing.
 - Rooms are deleted after `ROOM_TTL_DAYS` of inactivity; messages are capped at the last 100 per room.
 - No end-to-end browser tests (Vitest only). Use the two-tab recipe above to check the room page,
   the shared music and the focus summary by hand.

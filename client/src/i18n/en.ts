@@ -257,8 +257,7 @@ export const en = {
     loop: 'Loop',
     volume: 'Music volume',
     mute: 'Mute',
-    cover: 'Show cover',
-    coverOff: 'Hide cover',
+    noTitle: 'Something is playing',
     listening: 'Listening',
     stopListening: 'Stop listening',
     notListening: 'You’re not listening',
@@ -275,7 +274,7 @@ export const en = {
     failed: 'The YouTube player could not load. Check your connection and reload.',
     loading: 'Loading the player…',
     footnote:
-      'The music comes from YouTube, but the picture here is only a picture: it has no controls of its own, and it stays small so the sound gets the bandwidth. Availability depends on the video’s embedding settings.',
+      'The music comes from YouTube through a player kept small on purpose, and the disc is the only picture this card spends. It has no controls of its own — the room’s buttons are all there is. Availability depends on the video’s embedding settings.',
   },
   crash: {
     title: 'This page stopped working',

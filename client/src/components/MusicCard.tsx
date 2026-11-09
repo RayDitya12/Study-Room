@@ -4,7 +4,6 @@ import type { ErrorCode } from '@studyroom/shared';
 import { formatRemaining } from '../lib/format';
 import { useNow } from '../hooks/useNow';
 import { useMediaSync } from '../hooks/useMediaSync';
-import { thumbnailUrl } from '../lib/youtubePlayer';
 import type { MediaAction } from '../hooks/useRoomConnection';
 import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
@@ -43,8 +42,6 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
   const setMusicListening = usePrefsStore((s) => s.setMusicListening);
   const musicVolume = usePrefsStore((s) => s.musicVolume);
   const setMusicVolume = usePrefsStore((s) => s.setMusicVolume);
-  const cover = usePrefsStore((s) => s.musicCover);
-  const setCover = usePrefsStore((s) => s.setMusicCover);
 
   const { containerRef, ready, failed, blocked, ended, unplayable, title, sync, joinTheMusic, replay } =
     useMediaSync();
@@ -54,22 +51,17 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
   const [busy, setBusy] = useState(false);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [muted, setMuted] = useState(false);
-  /** A still that will not load is not worth another request per render. */
-  const [coverFailed, setCoverFailed] = useState(false);
 
   useEffect(() => {
     sync?.setMuted(muted);
   }, [sync, muted]);
 
-  useEffect(() => {
-    setCoverFailed(false);
-  }, [media?.videoId]);
-
   if (!media) return null;
 
-  const videoId = media.videoId;
-  const hasVideo = videoId !== null;
+  const hasVideo = media.videoId !== null;
   const playing = media.status === 'playing';
+  /** The record only turns when this device is actually making sound. */
+  const spins = playing && musicListening && !blocked;
   const isLive = sync !== null && sync.isLive();
   const durationMs = sync?.durationMs() ?? 0;
   const seekable = hasVideo && ready && !isLive && durationMs > 0;
@@ -112,25 +104,11 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-text">{t('room.musicTab')}</h2>
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          {hasVideo && !canControl ? (
-            <span className="truncate text-xs text-subtext0">
-              {setByName ? t('music.addedBy', { name: setByName }) : t('music.addedByGone')}
-            </span>
-          ) : null}
-          {hasVideo ? (
-            <button
-              type="button"
-              onClick={() => setCover(!cover)}
-              aria-pressed={cover}
-              className={`shrink-0 rounded-lg px-2 py-1 text-xs ${
-                cover ? 'bg-surface0 text-text' : 'text-subtext0 hover:bg-surface0'
-              }`}
-            >
-              {t(cover ? 'music.coverOff' : 'music.cover')}
-            </button>
-          ) : null}
-        </div>
+        {hasVideo && !canControl ? (
+          <span className="truncate text-xs text-subtext0">
+            {setByName ? t('music.addedBy', { name: setByName }) : t('music.addedByGone')}
+          </span>
+        ) : null}
       </div>
 
       {canControl ? (
@@ -159,29 +137,12 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
         </form>
       ) : null}
 
-      {/* The cover is a still from the same validated id: one small image, and no
-          video bytes beyond what the bar itself asks for. */}
-      {hasVideo && cover && !coverFailed ? (
-        <div
-          className="w-full overflow-hidden rounded-xl bg-crust"
-          style={{ aspectRatio: '16 / 9', minHeight: MEDIA.MIN_PLAYER_HEIGHT_PX }}
-        >
-          <img
-            src={thumbnailUrl(videoId)}
-            alt=""
-            loading="lazy"
-            onError={() => setCoverFailed(true)}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      ) : null}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         {/* Hidden only when there is nothing in it to hear. The width is what
             keeps the stream cheap, and `pointer-events-none` is what keeps
             YouTube's own play/pause out of reach: the room has one set. */}
         <div
-          className={`shrink-0 self-center overflow-hidden rounded-xl bg-crust sm:self-auto ${
+          className={`shrink-0 self-center overflow-hidden rounded-lg bg-crust sm:self-auto ${
             hasVideo ? 'block pointer-events-none' : 'hidden'
           }`}
           style={{ width: MEDIA.MINI_PLAYER_WIDTH_PX, aspectRatio: '16 / 9' }}
@@ -190,10 +151,17 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
         </div>
 
         <div className="min-w-0 flex-1">
-          {hasVideo && title ? (
-            <p className="truncate text-sm text-subtext1" title={title}>
-              {title}
-            </p>
+          {hasVideo ? (
+            <div className="flex items-center gap-3">
+              <span className="vinyl" data-spin={String(spins)} aria-hidden="true" />
+              {title ? (
+                <p className="min-w-0 flex-1 truncate text-sm text-subtext1" title={title}>
+                  {title}
+                </p>
+              ) : (
+                <p className="min-w-0 flex-1 text-sm text-subtext0">{t('music.noTitle')}</p>
+              )}
+            </div>
           ) : null}
 
           {!hasVideo ? (
