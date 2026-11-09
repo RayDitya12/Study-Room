@@ -274,6 +274,12 @@ export const en = {
     loading: 'Loading the player…',
     footnote: 'Music is played by YouTube. Availability depends on the video’s embedding settings.',
   },
+  crash: {
+    title: 'This page stopped working',
+    body: 'Something failed while the page was being drawn, so React removed it instead of showing half a screen. The lines below say what failed.',
+    retry: 'Reload',
+    home: 'Back to home',
+  },
   notFound: {
     title: 'Page not found',
     description: 'The link you followed is not valid.',

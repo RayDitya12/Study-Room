@@ -70,7 +70,8 @@ interface YtInstance {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
-  getVideoData(): { title?: string };
+  /** Absent, or empty before a video is cued, on some player builds. */
+  getVideoData?(): { title?: string } | undefined;
   setVolume(volume: number): void;
   mute(): void;
   unMute(): void;
@@ -153,7 +154,7 @@ export async function createYouTubePlayer(element: HTMLElement): Promise<MediaPl
       // looks; the sync code only ever treats it as "nothing to seek".
       isLive: () => call((p) => p.getDuration() <= 0, true),
       getState: () => call((p) => playerStateOf(p.getPlayerState()), 'unstarted'),
-      getTitle: () => call((p) => p.getVideoData().title ?? '', ''),
+      getTitle: () => call((p) => p.getVideoData?.()?.title ?? '', ''),
       setVolume: (v) => void call((p) => p.setVolume(Math.round(Math.min(100, Math.max(0, v)))), undefined),
       mute: () => void call((p) => p.mute(), undefined),
       unMute: () => void call((p) => p.unMute(), undefined),

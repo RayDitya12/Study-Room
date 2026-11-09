@@ -276,6 +276,12 @@ export const id: Messages = {
     loading: 'Memuat pemutar…',
     footnote: 'Musik diputar oleh YouTube. Ketersediaannya bergantung pada pengaturan tanam video.',
   },
+  crash: {
+    title: 'Halaman ini berhenti bekerja',
+    body: 'Ada yang gagal saat halaman ini digambar, jadi React menghapusnya alih-alih memperlihatkan layar setengah jadi. Baris di bawah menunjukkan apa yang gagal.',
+    retry: 'Muat ulang',
+    home: 'Kembali ke beranda',
+  },
   notFound: {
     title: 'Halaman tidak ditemukan',
     description: 'Tautan yang kamu buka tidak valid.',

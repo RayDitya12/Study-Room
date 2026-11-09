@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/Toaster';
 import { Home } from './pages/Home';
 import { NotFound } from './pages/NotFound';
@@ -14,13 +15,13 @@ export default function App() {
   }, [lang]);
 
   return (
-    <>
+    <ErrorBoundary>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/r/:code" element={<RoomPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
-    </>
+    </ErrorBoundary>
   );
 }
