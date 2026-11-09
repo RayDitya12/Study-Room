@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { ALERT_SOUNDS, previewAlert } from '../lib/alertSounds';
 import { useT } from '../i18n/useT';
 import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
 
-const PANEL_WIDTH = 232;
-const PANEL_HEIGHT = 96;
+const PANEL_WIDTH = 244;
+const PANEL_HEIGHT = 380;
 const SMALL_SCREEN = '(max-width: 639.98px)';
 
 const TIMER_STYLES: TimerStylePref[] = ['ring', 'minimal'];
@@ -16,6 +17,12 @@ export function SoundDisplayPopover() {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const alertSound = usePrefsStore((s) => s.alertSound);
+  const setAlertSound = usePrefsStore((s) => s.setAlertSound);
+  const alertVolume = usePrefsStore((s) => s.alertVolume);
+  const setAlertVolume = usePrefsStore((s) => s.setAlertVolume);
+  const soundOn = usePrefsStore((s) => s.soundOn);
+  const toggleSound = usePrefsStore((s) => s.toggleSound);
   const timerStyle = usePrefsStore((s) => s.timerStyle);
   const setTimerStyle = usePrefsStore((s) => s.setTimerStyle);
 
@@ -60,6 +67,11 @@ export function SoundDisplayPopover() {
     setAnchor({ top, left });
   };
 
+  const pick = (id: (typeof ALERT_SOUNDS)[number]['id']): void => {
+    setAlertSound(id);
+    previewAlert(id, alertVolume);
+  };
+
   const open = anchor !== null;
 
   return (
@@ -87,11 +99,76 @@ export function SoundDisplayPopover() {
           ref={panelRef}
           role="dialog"
           aria-label={t('display.title')}
-          style={anchor === 'sheet' ? undefined : { top: anchor.top, left: anchor.left, width: PANEL_WIDTH }}
-          className={`fixed z-50 rounded-xl border border-surface1 bg-base p-3 shadow-lg ${
+          style={
+            anchor === 'sheet' ? undefined : { top: anchor.top, left: anchor.left, width: PANEL_WIDTH }
+          }
+          className={`fixed z-50 max-h-[calc(100dvh-16px)] space-y-4 overflow-y-auto rounded-xl border border-surface1 bg-base p-3 shadow-lg ${
             anchor === 'sheet' ? 'inset-x-3 bottom-3' : ''
           }`}
         >
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-subtext0">{t('display.alerts')}</legend>
+            <p className="text-xs text-subtext0">{t('display.alertHint')}</p>
+            <div className="space-y-0.5">
+              {ALERT_SOUNDS.map((sound) => (
+                <div key={sound.id} className="flex items-center gap-1">
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-sm">
+                    <input
+                      type="radio"
+                      name="alert-sound"
+                      checked={alertSound === sound.id}
+                      onChange={() => pick(sound.id)}
+                      className="accent-mauve"
+                    />
+                    <span className={alertSound === sound.id ? 'text-text' : 'text-subtext0'}>
+                      {t(`display.sounds.${sound.id}`)}
+                    </span>
+                  </label>
+                  {sound.wave ? (
+                    <button
+                      type="button"
+                      onClick={() => previewAlert(sound.id, alertVolume)}
+                      title={t('display.preview')}
+                      aria-label={`${t('display.preview')} · ${t(`display.sounds.${sound.id}`)}`}
+                      className="shrink-0 rounded-lg p-1.5 text-subtext0 hover:bg-surface0 hover:text-text"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <label className="block space-y-1">
+              <span className="flex items-center justify-between text-sm text-subtext0">
+                <span>{t('display.alertVolume')}</span>
+                <span className="tabular-nums text-xs text-text">{alertVolume}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={alertVolume}
+                onChange={(e) => setAlertVolume(Number(e.currentTarget.value))}
+                aria-label={t('display.alertVolume')}
+                className="w-full accent-mauve"
+              />
+            </label>
+
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="text-sm text-subtext0">{t('display.playAlerts')}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={soundOn}
+                onChange={toggleSound}
+                className="h-5 w-5 accent-mauve"
+              />
+            </label>
+          </fieldset>
+
           <fieldset className="space-y-1.5">
             <legend className="text-sm text-subtext0">{t('display.timerStyle')}</legend>
             <div className="flex gap-1 rounded-xl bg-mantle p-1">
@@ -102,9 +179,7 @@ export function SoundDisplayPopover() {
                   aria-pressed={timerStyle === style}
                   onClick={() => setTimerStyle(style)}
                   className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                    timerStyle === style
-                      ? 'bg-mauve/20 text-mauve'
-                      : 'text-subtext0 hover:text-text'
+                    timerStyle === style ? 'bg-mauve/20 text-mauve' : 'text-subtext0 hover:text-text'
                   }`}
                 >
                   {t(style === 'ring' ? 'display.ring' : 'display.minimal')}

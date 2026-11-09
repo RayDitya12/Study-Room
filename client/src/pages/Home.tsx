@@ -7,7 +7,7 @@ import { CreateRoomForm } from '../components/CreateRoomForm';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { SoundToggle } from '../components/SoundToggle';
-import { SoundPicker } from '../components/SoundPicker';
+import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 
 const inputClass =
   'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none';
@@ -36,7 +36,7 @@ export function Home() {
         <div className="flex items-center gap-1">
           <LanguageToggle />
           <ThemeToggle />
-          <SoundPicker />
+          <SoundDisplayPopover />
           <SoundToggle />
         </div>
       </header>

@@ -12,7 +12,6 @@ import {
   type ThemePref,
   type TimerStylePref,
 } from '../lib/prefs';
-import type { PresetId } from '../lib/soundPresets';
 
 export type { AlertSoundPref, AmbientPref, LangPref, SelectableTheme, ThemePref, TimerStylePref };
 
@@ -21,7 +20,6 @@ interface PrefsState extends PrefsValues {
   setLang: (lang: LangPref) => void;
   toggleLang: () => void;
   toggleSound: () => void;
-  setSoundPreset: (id: PresetId) => void;
   setAlertSound: (id: AlertSoundPref) => void;
   setAlertVolume: (volume: number) => void;
   setAmbientType: (type: AmbientPref) => void;
@@ -41,7 +39,6 @@ export const usePrefsStore = create<PrefsState>()(
       setLang: (lang) => set({ lang }),
       toggleLang: () => set((s) => ({ lang: s.lang === 'en' ? 'id' : 'en' })),
       toggleSound: () => set((s) => ({ soundOn: !s.soundOn })),
-      setSoundPreset: (soundPreset) => set({ soundPreset }),
       setAlertSound: (alertSound) => set({ alertSound }),
       setAlertVolume: (alertVolume) => set({ alertVolume }),
       setAmbientType: (ambientType) => set({ ambientType }),

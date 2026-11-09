@@ -13,7 +13,7 @@ import type {
 } from '@studyroom/shared';
 import { clockSync } from '../lib/clock';
 import { createSocket, type AppSocketClient } from '../lib/socket';
-import { playPhaseChange } from '../lib/sound';
+import { playAlert } from '../lib/alertSounds';
 import {
   clearRoomSession,
   getClientId,
@@ -161,7 +161,7 @@ export function useRoomConnection(code: string): {
       useRoomStore.getState().timerState(event);
       const prefs = usePrefsStore.getState();
       if (event.reason === 'complete' && prefs.soundOn) {
-        playPhaseChange(event.timer.phase, prefs.soundPreset);
+        playAlert(prefs.alertSound, event.timer.phase, prefs.alertVolume);
       }
     });
 

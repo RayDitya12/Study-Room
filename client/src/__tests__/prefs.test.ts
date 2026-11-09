@@ -3,15 +3,29 @@ import { migratePrefs, PREF_DEFAULTS, PREFS_STORAGE_VERSION } from '../lib/prefs
 
 describe('prefs migration', () => {
   it('fills every newer key with its default', () => {
-    const old = { theme: 'dark', lang: 'en', soundOn: true, soundPreset: 'gong' };
+    const old = { theme: 'dark', lang: 'en', soundOn: true };
     const migrated = migratePrefs(old);
     expect(migrated.theme).toBe('dark');
-    expect(migrated.soundPreset).toBe('gong');
     expect(migrated.alertSound).toBe(PREF_DEFAULTS.alertSound);
     expect(migrated.timerStyle).toBe('ring');
     expect(migrated.focusTracking).toBe(false);
     expect(migrated.musicListening).toBe(true);
     expect(Object.keys(migrated).sort()).toEqual(Object.keys(PREF_DEFAULTS).sort());
+  });
+
+  it('carries the older ten-voice choice over to the closest alert sound', () => {
+    expect(migratePrefs({ soundPreset: 'gong' }).alertSound).toBe('bell');
+    expect(migratePrefs({ soundPreset: 'arpeggio' }).alertSound).toBe('chime');
+    expect(migratePrefs({ soundPreset: 'beep' }).alertSound).toBe('pulse');
+    expect(migratePrefs({ soundPreset: 'pluck' }).alertSound).toBe('marimba');
+  });
+
+  it('prefers a stored alert sound over the legacy key', () => {
+    expect(migratePrefs({ soundPreset: 'gong', alertSound: 'pulse' }).alertSound).toBe('pulse');
+  });
+
+  it('ignores a legacy name it does not know', () => {
+    expect(migratePrefs({ soundPreset: 'kazoo' }).alertSound).toBe(PREF_DEFAULTS.alertSound);
   });
 
   it('keeps values that are already stored', () => {
@@ -39,6 +53,6 @@ describe('prefs migration', () => {
   });
 
   it('is versioned so zustand only runs it on older stores', () => {
-    expect(PREFS_STORAGE_VERSION).toBe(1);
+    expect(PREFS_STORAGE_VERSION).toBe(2);
   });
 });

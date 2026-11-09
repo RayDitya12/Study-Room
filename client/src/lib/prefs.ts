@@ -1,5 +1,3 @@
-import { DEFAULT_PRESET_ID, type PresetId } from './soundPresets';
-
 /**
  * The contract for everything stored under `studyroom.prefs`. It lives here,
  * pure and free of zustand, so an old stored object can be migrated in a test.
@@ -18,8 +16,6 @@ export interface PrefsValues {
   lang: LangPref;
   /** Master mute for the alert sounds. */
   soundOn: boolean;
-  /** The older ten-voice chime picker, kept until the alert table replaces it. */
-  soundPreset: PresetId;
   alertSound: AlertSoundPref;
   /** 0..100 sliders, all stored as whole percents. */
   alertVolume: number;
@@ -38,7 +34,6 @@ export const PREF_DEFAULTS: PrefsValues = {
   theme: 'system',
   lang: 'en',
   soundOn: true,
-  soundPreset: DEFAULT_PRESET_ID,
   alertSound: 'chime',
   alertVolume: 60,
   ambientType: 'off',
@@ -50,7 +45,24 @@ export const PREF_DEFAULTS: PrefsValues = {
   musicListening: true,
 };
 
-export const PREFS_STORAGE_VERSION = 1;
+export const PREFS_STORAGE_VERSION = 2;
+
+/**
+ * The ten-voice chime picker that came before the alert table, folded into the
+ * five sounds that table defines.
+ */
+const LEGACY_ALERT_SOUND: Record<string, AlertSoundPref> = {
+  classic: 'chime',
+  bell: 'bell',
+  chime: 'chime',
+  marimba: 'marimba',
+  beep: 'pulse',
+  pulse: 'pulse',
+  gong: 'bell',
+  pluck: 'marimba',
+  arpeggio: 'chime',
+  sweep: 'pulse',
+};
 
 /**
  * Brings any stored object up to the current shape: keys added later get their
@@ -59,11 +71,14 @@ export const PREFS_STORAGE_VERSION = 1;
  */
 export function migratePrefs(stored: unknown): PrefsValues {
   const next: Record<string, unknown> = { ...PREF_DEFAULTS };
-  if (stored && typeof stored === 'object') {
-    for (const [key, value] of Object.entries(stored as Record<string, unknown>)) {
-      const fallback = next[key];
-      if (fallback !== undefined && typeof value === typeof fallback) next[key] = value;
-    }
+  const source = (stored && typeof stored === 'object' ? stored : {}) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(source)) {
+    const fallback = next[key];
+    if (fallback !== undefined && typeof value === typeof fallback) next[key] = value;
+  }
+  if (typeof source.alertSound !== 'string' && typeof source.soundPreset === 'string') {
+    const mapped = LEGACY_ALERT_SOUND[source.soundPreset];
+    if (mapped) next.alertSound = mapped;
   }
   return next as unknown as PrefsValues;
 }
