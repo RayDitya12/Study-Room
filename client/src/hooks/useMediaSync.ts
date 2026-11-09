@@ -111,10 +111,12 @@ export function useMediaSync(): MediaSyncState {
       syncRef.current?.dispose();
       syncRef.current = null;
       // A player that was still being built must not outlive the card, or its
-      // audio keeps going after the room is gone.
-      void pending.current?.then((player) => {
-        if (!mounted.current) player.destroy();
-      });
+      // audio keeps going after the room is gone. The promise is dropped with it:
+      // the next card mounts a different box, and an old player cannot be
+      // re-aimed at it.
+      const built = pending.current;
+      pending.current = null;
+      void built?.then((player) => player.destroy());
     },
     [],
   );

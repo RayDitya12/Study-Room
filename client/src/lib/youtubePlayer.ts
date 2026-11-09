@@ -128,6 +128,15 @@ export function loadYouTubeApi(): Promise<YtPlayerApi> {
 export async function createYouTubePlayer(element: HTMLElement): Promise<MediaPlayer> {
   const api = await loadYouTubeApi();
 
+  // The API replaces the element it is handed with its own iframe. React must
+  // never be the one handing it over: the moment this card unmounts, React would
+  // try to remove a child that is no longer in the parent and take the whole page
+  // down with the error. So the caller's node keeps its own children and we hand
+  // over a node React does not know exists.
+  const host = document.createElement('div');
+  host.style.cssText = 'width:100%;height:100%';
+  element.appendChild(host);
+
   return new Promise<MediaPlayer>((resolve) => {
     let inner: YtInstance | null = null;
     const listeners: Record<'state' | 'ready' | 'error', Listener[]> = {
@@ -158,13 +167,18 @@ export async function createYouTubePlayer(element: HTMLElement): Promise<MediaPl
       setVolume: (v) => void call((p) => p.setVolume(Math.round(Math.min(100, Math.max(0, v)))), undefined),
       mute: () => void call((p) => p.mute(), undefined),
       unMute: () => void call((p) => p.unMute(), undefined),
-      destroy: () => void call((p) => p.destroy(), undefined),
+      destroy: () => {
+        call((p) => p.destroy(), undefined);
+        // Whatever the API left in our host — the iframe, or the placeholder —
+        // goes with it, so a remount never stacks players in one card.
+        while (element.firstChild) element.removeChild(element.firstChild);
+      },
       on(event, cb) {
         listeners[event].push(cb);
       },
     };
 
-    inner = new api.Player(element, {
+    inner = new api.Player(host, {
       host: PLAYER_HOST,
       width: '100%',
       height: '100%',
