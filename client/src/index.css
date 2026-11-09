@@ -104,9 +104,9 @@ body {
   outline-offset: 2px;
 }
 
-/* The record is the face of the music bar: it says sound is coming out of this
-   tab without spending a single video byte on a picture nobody watches. The
-   light wedge is what makes the rotation readable on a round, even object. */
+/* The record IS the video: a circular crop of the picture, wearing a grooved
+   film over the outside so it reads as a disc rather than a clipped frame. The
+   light wedge is what makes the rotation readable. */
 .vinyl-shell {
   position: relative;
   flex: none;
@@ -114,18 +114,40 @@ body {
   height: var(--vinyl-size, 88px);
 }
 
-/* The embed lives inside the disc and is covered by it: the sound of a video,
-   at a size nobody is meant to watch. */
+/* The clip. Nothing here takes a pointer; the room has one set of controls. */
 .vinyl-embed {
   position: absolute;
   inset: 0;
   overflow: hidden;
   border-radius: 9999px;
-  pointer-events: none;
   background: var(--ctp-crust);
 }
 
+/* YouTube's player is always 16:9, so it is as tall as the record and about
+   twice as wide, centred: the circle crops the middle of the picture, which is
+   where a thumbnail keeps its subject. */
+.vinyl-frame {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .vinyl {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--ctp-surface1);
+}
+
+/* The grooved film, held back from the middle so the label sits on plain
+   plastic. A radial mask is unchanged by the spin. */
+.vinyl::before {
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: 9999px;
@@ -133,15 +155,16 @@ body {
     conic-gradient(
       from 0deg,
       transparent 0 78%,
-      rgb(255 255 255 / 12%) 86% 90%,
+      rgb(255 255 255 / 18%) 86% 90%,
       transparent 96% 100%
     ),
     repeating-radial-gradient(
       circle at 50% 50%,
-      var(--ctp-surface0) 0 1px,
-      var(--ctp-crust) 1px 3px
+      rgb(17 17 27 / 55%) 0 1px,
+      rgb(17 17 27 / 25%) 1px 3px
     );
-  box-shadow: inset 0 0 0 1px var(--ctp-surface1);
+  -webkit-mask: radial-gradient(circle, transparent 0 32%, #000 33%);
+  mask: radial-gradient(circle, transparent 0 32%, #000 33%);
 }
 
 .vinyl::after {

@@ -219,13 +219,16 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           {/* The record is the player rather than a picture beside it: the embed
-              sits inside the circle, the disc covers it, and the only thing a
-              pointer can reach is the room's own button. */}
+              fills the circle with the middle of its own frame, the disc's
+              grooves lie over it, and the only thing a pointer can reach is the
+              room's own button. */}
           <div
             className="vinyl-shell self-center sm:self-auto"
             style={{ '--vinyl-size': `${MEDIA.VINYL_DIAMETER_PX}px` } as CSSProperties}
           >
-            <div ref={containerRef} className="vinyl-embed" />
+            <div className="vinyl-embed">
+              <div ref={containerRef} className="vinyl-frame" />
+            </div>
             <span className="vinyl" data-spin={String(spins)} aria-hidden="true" />
             {showCenter ? (
               <button
