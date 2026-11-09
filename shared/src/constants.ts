@@ -40,6 +40,12 @@ export const TIMER_PRESETS = [
 export const MEDIA = {
   URL_MAX: 200,
   MIN_PLAYER_HEIGHT_PX: 200,
+  /**
+   * The default bar is deliberately small: the embed picks its stream from the
+   * size it is drawn at, so a compact player costs fewer bytes than a
+   * full-width one — which matters more than a big picture during a focus run.
+   */
+  MINI_PLAYER_WIDTH_PX: 144,
   DRIFT_THRESHOLD_MS: 2000,
   DRIFT_CHECK_MS: 5000,
 } as const;

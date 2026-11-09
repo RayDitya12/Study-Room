@@ -26,6 +26,8 @@ export interface PrefsValues {
   focusTracking: boolean;
   musicVolume: number;
   musicListening: boolean;
+  /** Show the video's still above the bar instead of the bar alone. */
+  musicCover: boolean;
 }
 
 export const PREF_DEFAULTS: PrefsValues = {
@@ -43,6 +45,7 @@ export const PREF_DEFAULTS: PrefsValues = {
   focusTracking: false,
   musicVolume: 50,
   musicListening: true,
+  musicCover: false,
 };
 
 export const PREFS_STORAGE_VERSION = 2;

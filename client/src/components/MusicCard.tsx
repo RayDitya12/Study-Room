@@ -4,6 +4,7 @@ import type { ErrorCode } from '@studyroom/shared';
 import { formatRemaining } from '../lib/format';
 import { useNow } from '../hooks/useNow';
 import { useMediaSync } from '../hooks/useMediaSync';
+import { thumbnailUrl } from '../lib/youtubePlayer';
 import type { MediaAction } from '../hooks/useRoomConnection';
 import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
@@ -42,6 +43,8 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
   const setMusicListening = usePrefsStore((s) => s.setMusicListening);
   const musicVolume = usePrefsStore((s) => s.musicVolume);
   const setMusicVolume = usePrefsStore((s) => s.setMusicVolume);
+  const cover = usePrefsStore((s) => s.musicCover);
+  const setCover = usePrefsStore((s) => s.setMusicCover);
 
   const { containerRef, ready, failed, blocked, ended, unplayable, title, sync, joinTheMusic, replay } =
     useMediaSync();
@@ -51,14 +54,21 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
   const [busy, setBusy] = useState(false);
   const [dragMs, setDragMs] = useState<number | null>(null);
   const [muted, setMuted] = useState(false);
+  /** A still that will not load is not worth another request per render. */
+  const [coverFailed, setCoverFailed] = useState(false);
 
   useEffect(() => {
     sync?.setMuted(muted);
   }, [sync, muted]);
 
+  useEffect(() => {
+    setCoverFailed(false);
+  }, [media?.videoId]);
+
   if (!media) return null;
 
-  const hasVideo = media.videoId !== null;
+  const videoId = media.videoId;
+  const hasVideo = videoId !== null;
   const playing = media.status === 'playing';
   const isLive = sync !== null && sync.isLive();
   const durationMs = sync?.durationMs() ?? 0;
@@ -102,11 +112,25 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-text">{t('room.musicTab')}</h2>
-        {hasVideo && !canControl ? (
-          <span className="truncate text-xs text-subtext0">
-            {setByName ? t('music.addedBy', { name: setByName }) : t('music.addedByGone')}
-          </span>
-        ) : null}
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          {hasVideo && !canControl ? (
+            <span className="truncate text-xs text-subtext0">
+              {setByName ? t('music.addedBy', { name: setByName }) : t('music.addedByGone')}
+            </span>
+          ) : null}
+          {hasVideo ? (
+            <button
+              type="button"
+              onClick={() => setCover(!cover)}
+              aria-pressed={cover}
+              className={`shrink-0 rounded-lg px-2 py-1 text-xs ${
+                cover ? 'bg-surface0 text-text' : 'text-subtext0 hover:bg-surface0'
+              }`}
+            >
+              {t(cover ? 'music.coverOff' : 'music.cover')}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {canControl ? (
@@ -135,138 +159,162 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
         </form>
       ) : null}
 
-      {/* The frame is only ever hidden when there is nothing in it to hear, and
-          never sized below what YouTube asks for. */}
-      <div
-        className={`w-full overflow-hidden rounded-xl bg-crust ${hasVideo ? 'block' : 'hidden'}`}
-        style={{ aspectRatio: '16 / 9', minHeight: MEDIA.MIN_PLAYER_HEIGHT_PX }}
-      >
-        <div ref={containerRef} className="h-full w-full" />
-      </div>
-
-      {hasVideo && title ? (
-        <p className="truncate text-sm text-subtext1" title={title}>
-          {title}
-        </p>
+      {/* The cover is a still from the same validated id: one small image, and no
+          video bytes beyond what the bar itself asks for. */}
+      {hasVideo && cover && !coverFailed ? (
+        <div
+          className="w-full overflow-hidden rounded-xl bg-crust"
+          style={{ aspectRatio: '16 / 9', minHeight: MEDIA.MIN_PLAYER_HEIGHT_PX }}
+        >
+          <img
+            src={thumbnailUrl(videoId)}
+            alt=""
+            loading="lazy"
+            onError={() => setCoverFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        </div>
       ) : null}
 
-      {!hasVideo ? (
-        canControl ? (
-          <p className="text-xs text-subtext0">{t('music.empty')}</p>
-        ) : null
-      ) : (
-        <div className="space-y-3">
-          {seekable ? (
-            <div className="space-y-1">
-              <input
-                type="range"
-                min={0}
-                max={Math.round(durationMs / 1000)}
-                step={1}
-                value={Math.round(positionMs / 1000)}
-                disabled={!canControl}
-                onChange={(event) => {
-                  if (!canControl) return;
-                  setDragMs(Number(event.currentTarget.value) * 1000);
-                }}
-                onPointerUp={() => void commitSeek()}
-                onKeyUp={() => void commitSeek()}
-                aria-label={positionLabel}
-                className="w-full accent-mauve disabled:opacity-50"
-              />
-              <p className="text-right font-mono text-xs tabular-nums text-subtext0">
-                {positionLabel}
-              </p>
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-2">
-            {canControl ? (
-              <>
-                <Button
-                  onClick={() => run(playing ? 'pause' : 'play')}
-                  disabled={!ready}
-                  className="min-w-24"
-                >
-                  {t(playing ? 'music.pause' : 'music.play')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  aria-pressed={media.loop}
-                  onClick={() => void onSetLoop(!media.loop)}
-                >
-                  {t('music.loop')}
-                </Button>
-                <Button variant="ghost" onClick={() => run('clear')}>
-                  {t('music.clear')}
-                </Button>
-              </>
-            ) : null}
-
-            <Button
-              variant={musicListening ? 'secondary' : 'ghost'}
-              aria-pressed={musicListening}
-              onClick={() => setMusicListening(!musicListening)}
-            >
-              {t(musicListening ? 'music.stopListening' : 'music.listening')}
-            </Button>
-          </div>
-
-          <label className="block space-y-1">
-            <span className="flex items-center justify-between text-xs text-subtext0">
-              <span>{t('music.volume')}</span>
-              <span className="tabular-nums text-text">{musicVolume}</span>
-            </span>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={musicVolume}
-                onChange={(event) => setMusicVolume(Number(event.currentTarget.value))}
-                aria-label={t('music.volume')}
-                className="w-full accent-mauve"
-              />
-              <button
-                type="button"
-                aria-pressed={muted}
-                onClick={() => setMuted((value) => !value)}
-                title={t('music.mute')}
-                aria-label={t('music.mute')}
-                className={`shrink-0 rounded-lg p-2 hover:bg-surface0 ${
-                  muted ? 'text-red' : 'text-subtext0'
-                }`}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M11 5 6 9H3v6h3l5 4z" />
-                  {muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 8.5a5 5 0 0 1 0 7" />}
-                </svg>
-              </button>
-            </div>
-          </label>
-
-          {blocked ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-surface0/60 p-2">
-              <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.joinPrompt')}</p>
-              <Button onClick={joinTheMusic}>{t('music.join')}</Button>
-            </div>
-          ) : null}
-
-          {!musicListening ? <p className="text-xs text-subtext0">{t('music.notListening')}</p> : null}
-          {isLive ? <p className="text-xs text-subtext0">{t('music.live')}</p> : null}
-          {ended ? (
-            <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.ended')}</p>
-              <Button variant="secondary" onClick={replay}>
-                {t('music.replay')}
-              </Button>
-            </div>
-          ) : null}
-          {unplayable ? <p className="text-xs text-red">{t('music.unplayable')}</p> : null}
-          {!ready && !failed ? <p className="text-xs text-subtext0">{t('music.loading')}</p> : null}
-          {failed ? <p className="text-xs text-red">{t('music.failed')}</p> : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        {/* Hidden only when there is nothing in it to hear. The width is what
+            keeps the stream cheap, and `pointer-events-none` is what keeps
+            YouTube's own play/pause out of reach: the room has one set. */}
+        <div
+          className={`shrink-0 self-center overflow-hidden rounded-xl bg-crust sm:self-auto ${
+            hasVideo ? 'block pointer-events-none' : 'hidden'
+          }`}
+          style={{ width: MEDIA.MINI_PLAYER_WIDTH_PX, aspectRatio: '16 / 9' }}
+        >
+          <div ref={containerRef} className="h-full w-full" />
         </div>
-      )}
+
+        <div className="min-w-0 flex-1">
+          {hasVideo && title ? (
+            <p className="truncate text-sm text-subtext1" title={title}>
+              {title}
+            </p>
+          ) : null}
+
+          {!hasVideo ? (
+            canControl ? (
+              <p className="text-xs text-subtext0">{t('music.empty')}</p>
+            ) : null
+          ) : (
+            <div className="space-y-3">
+              {seekable ? (
+                <div className="space-y-1">
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.round(durationMs / 1000)}
+                    step={1}
+                    value={Math.round(positionMs / 1000)}
+                    disabled={!canControl}
+                    onChange={(event) => {
+                      if (!canControl) return;
+                      setDragMs(Number(event.currentTarget.value) * 1000);
+                    }}
+                    onPointerUp={() => void commitSeek()}
+                    onKeyUp={() => void commitSeek()}
+                    aria-label={positionLabel}
+                    className="w-full accent-mauve disabled:opacity-50"
+                  />
+                  <p className="text-right font-mono text-xs tabular-nums text-subtext0">
+                    {positionLabel}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {canControl ? (
+                  <>
+                    <Button
+                      onClick={() => run(playing ? 'pause' : 'play')}
+                      disabled={!ready}
+                      className="min-w-24"
+                    >
+                      {t(playing ? 'music.pause' : 'music.play')}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      aria-pressed={media.loop}
+                      onClick={() => void onSetLoop(!media.loop)}
+                    >
+                      {t('music.loop')}
+                    </Button>
+                    <Button variant="ghost" onClick={() => run('clear')}>
+                      {t('music.clear')}
+                    </Button>
+                  </>
+                ) : null}
+
+                <Button
+                  variant={musicListening ? 'secondary' : 'ghost'}
+                  aria-pressed={musicListening}
+                  onClick={() => setMusicListening(!musicListening)}
+                >
+                  {t(musicListening ? 'music.stopListening' : 'music.listening')}
+                </Button>
+              </div>
+
+              <label className="block space-y-1">
+                <span className="flex items-center justify-between text-xs text-subtext0">
+                  <span>{t('music.volume')}</span>
+                  <span className="tabular-nums text-text">{musicVolume}</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={musicVolume}
+                    onChange={(event) => setMusicVolume(Number(event.currentTarget.value))}
+                    aria-label={t('music.volume')}
+                    className="w-full accent-mauve"
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={muted}
+                    onClick={() => setMuted((value) => !value)}
+                    title={t('music.mute')}
+                    aria-label={t('music.mute')}
+                    className={`shrink-0 rounded-lg p-2 hover:bg-surface0 ${
+                      muted ? 'text-red' : 'text-subtext0'
+                    }`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M11 5 6 9H3v6h3l5 4z" />
+                      {muted ? <path d="m17 9 4 6M21 9l-4 6" /> : <path d="M16 8.5a5 5 0 0 1 0 7" />}
+                    </svg>
+                  </button>
+                </div>
+              </label>
+
+              {blocked ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-surface0/60 p-2">
+                  <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.joinPrompt')}</p>
+                  <Button onClick={joinTheMusic}>{t('music.join')}</Button>
+                </div>
+              ) : null}
+
+              {!musicListening ? <p className="text-xs text-subtext0">{t('music.notListening')}</p> : null}
+              {isLive ? <p className="text-xs text-subtext0">{t('music.live')}</p> : null}
+              {ended ? (
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 text-xs text-subtext0">{t('music.ended')}</p>
+                  <Button variant="secondary" onClick={replay}>
+                    {t('music.replay')}
+                  </Button>
+                </div>
+              ) : null}
+              {unplayable ? <p className="text-xs text-red">{t('music.unplayable')}</p> : null}
+              {!ready && !failed ? <p className="text-xs text-subtext0">{t('music.loading')}</p> : null}
+              {failed ? <p className="text-xs text-red">{t('music.failed')}</p> : null}
+            </div>
+          )}
+        </div>
+      </div>
 
       <p className="text-xs text-overlay0">{t('music.footnote')}</p>
     </section>

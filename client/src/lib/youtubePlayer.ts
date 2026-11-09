@@ -25,6 +25,15 @@ export interface MediaPlayer {
 }
 
 const API_SRC = 'https://www.youtube.com/iframe_api';
+const THUMB_SRC = 'https://i.ytimg.com/vi';
+
+/**
+ * The still shown in place of the moving picture. Built from the server's
+ * validated id, never from a link a member typed.
+ */
+export function thumbnailUrl(videoId: string): string {
+  return `${THUMB_SRC}/${videoId}/hqdefault.jpg`;
+}
 /** A consent-lighter host for the frame itself. */
 const PLAYER_HOST = 'https://www.youtube-nocookie.com';
 const API_TIMEOUT_MS = 10_000;

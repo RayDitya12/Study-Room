@@ -259,6 +259,8 @@ export const id: Messages = {
     loop: 'Ulangi',
     volume: 'Volume musik',
     mute: 'Bisukan',
+    cover: 'Tampilkan sampul',
+    coverOff: 'Sembunyikan sampul',
     listening: 'Mendengar',
     stopListening: 'Berhenti mendengar',
     notListening: 'Kamu sedang tidak mendengar',
@@ -274,7 +276,8 @@ export const id: Messages = {
     live: 'Siaran langsung, jadi tidak ada posisi yang bisa disamakan.',
     failed: 'Pemutar YouTube gagal dimuat. Periksa koneksi lalu muat ulang.',
     loading: 'Memuat pemutar…',
-    footnote: 'Musik diputar oleh YouTube. Ketersediaannya bergantung pada pengaturan tanam video.',
+    footnote:
+      'Musiknya dari YouTube, tapi gambar di sini cuma gambar: tidak punya kontrol sendiri, dan ukurannya sengaja kecil supaya bandwidth-nya untuk suara. Ketersediaannya bergantung pada pengaturan tanam video.',
   },
   crash: {
     title: 'Halaman ini berhenti bekerja',

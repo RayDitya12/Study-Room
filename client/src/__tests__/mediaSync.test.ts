@@ -274,6 +274,30 @@ describe('mediaSync keeps step with the room', () => {
     expect(h.player.calls).toEqual([]);
   });
 
+  it('restarts a player that fell out of playback while the room plays', () => {
+    const h = harness();
+    drifting(h);
+    h.player.timeMs = 30_000;
+    h.player.report('paused');
+    h.drain();
+    h.sync.tick();
+    // The ask comes first, then whatever the silence cost in position.
+    expect(h.player.calls).toEqual(['play']);
+  });
+
+  it('stops a player that started on its own while the room is paused', () => {
+    const h = harness();
+    const media = mediaMachine.pause(
+      mediaMachine.setVideo(empty(), ID, 'u1', START),
+      START,
+    );
+    h.sync.applyMedia(media);
+    h.player.report('playing');
+    h.drain();
+    h.sync.tick();
+    expect(h.player.calls).toEqual(['pause']);
+  });
+
   it('never corrects a live stream', () => {
     const h = harness();
     drifting(h);

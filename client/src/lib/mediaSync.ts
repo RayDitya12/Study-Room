@@ -181,7 +181,12 @@ export function createMediaSync(deps: MediaSyncDeps): MediaSync {
 
     tick: () => {
       const m = media;
-      if (!m?.videoId || ended || m.status !== 'playing' || player.isLive()) return;
+      if (!m?.videoId || ended || player.isLive()) return;
+      if (m.status !== 'playing') {
+        // An embed that started on its own did not ask the room.
+        if (m.status === 'paused' && player.getState() === 'playing') player.pause();
+        return;
+      }
       const duration = player.getDurationMs();
       // Without a loop the room keeps counting but there is nothing left to
       // watch: stop locally instead of pretending to be in step. A looping
@@ -197,6 +202,10 @@ export function createMediaSync(deps: MediaSyncDeps): MediaSync {
         return;
       }
       if (!listening) return;
+      // The player can fall out of playback on its own — a stall it never came
+      // back from, an interaction that reached it — and sit there with the room
+      // still counting. Asking again is the only way that silence ends.
+      if (player.getState() === 'paused') player.play();
       correctTo(targetFor(m));
     },
 

@@ -29,6 +29,7 @@ interface PrefsState extends PrefsValues {
   setFocusTracking: (enabled: boolean) => void;
   setMusicVolume: (volume: number) => void;
   setMusicListening: (listening: boolean) => void;
+  setMusicCover: (cover: boolean) => void;
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -48,6 +49,7 @@ export const usePrefsStore = create<PrefsState>()(
       setFocusTracking: (focusTracking) => set({ focusTracking }),
       setMusicVolume: (musicVolume) => set({ musicVolume }),
       setMusicListening: (musicListening) => set({ musicListening }),
+      setMusicCover: (musicCover) => set({ musicCover }),
     }),
     {
       name: 'studyroom.prefs',
