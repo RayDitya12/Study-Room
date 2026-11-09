@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALERT_SOUNDS, previewAlert } from '../lib/alertSounds';
+import { focusableWithin } from '../lib/focus';
 import type { AmbientPref } from '../stores/prefsStore';
 import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
 import { useT } from '../i18n/useT';
@@ -39,23 +40,34 @@ export function SoundDisplayPopover() {
 
   useEffect(() => {
     if (!anchor) return;
+    const panel = panelRef.current;
     const close = (): void => setAnchor(null);
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') close();
+      if (e.key !== 'Escape') return;
+      close();
+      triggerRef.current?.focus();
     };
     const onMouseDown = (e: MouseEvent): void => {
       const target = e.target as Node;
       if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
       close();
     };
+    // The panel scrolls its own groups, so only a scroll behind it leaves the
+    // anchor pointing at a button that has moved.
+    const onScroll = (e: Event): void => {
+      if (e.target instanceof Node && panel?.contains(e.target)) return;
+      close();
+    };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', close);
+    const checked = panel?.querySelector<HTMLElement>('input:checked');
+    (checked ?? focusableWithin(panel)[0] ?? panel)?.focus();
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', close);
     };
   }, [anchor]);
@@ -113,6 +125,7 @@ export function SoundDisplayPopover() {
           ref={panelRef}
           role="dialog"
           aria-label={t('display.title')}
+          tabIndex={-1}
           style={
             anchor === 'sheet'
               ? { maxHeight: '65dvh' }

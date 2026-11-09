@@ -40,7 +40,7 @@ export function useMediaSync(): MediaSyncState {
   const latest = useRef<MediaState | null>(media);
   latest.current = media;
   const syncRef = useRef<MediaSync | null>(null);
-  const pendingPlayer = useRef<MediaPlayer | null>(null);
+  const pending = useRef<Promise<MediaPlayer> | null>(null);
   const mounted = useRef(true);
 
   const [sync, setSync] = useState<MediaSync | null>(null);
@@ -48,20 +48,41 @@ export function useMediaSync(): MediaSyncState {
   const [blocked, setBlocked] = useState(false);
   const [ended, setEnded] = useState(false);
   const [unplayable, setUnplayable] = useState(false);
+  /** YouTube is never mounted into a box that has no size yet. */
+  const [laidOut, setLaidOut] = useState(false);
+
+  // The card is rendered as soon as the room snapshot has media, but on a phone
+  // it can still be behind another tab. Watching the box means the player is
+  // built the moment it becomes visible, and never before.
+  const hasContainer = media !== null;
+  useEffect(() => {
+    if (!hasContainer) return;
+    const element = containerRef.current;
+    if (!element) return;
+    if (typeof ResizeObserver === 'undefined') {
+      setLaidOut(true);
+      return;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      setLaidOut((box?.width ?? 0) > 0 && (box?.height ?? 0) > 0);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasContainer]);
 
   useEffect(() => {
-    if (!media?.videoId) return;
+    if (!media?.videoId || !laidOut) return;
     const element = containerRef.current;
-    if (!element || syncRef.current || pendingPlayer.current) return;
+    if (!element || syncRef.current) return;
     mounted.current = true;
 
-    void createYouTubePlayer(element)
+    // One construction per box, even when the room swaps videos while the API
+    // script is still on its way.
+    if (!pending.current) pending.current = createYouTubePlayer(element);
+    void pending.current
       .then((player) => {
-        pendingPlayer.current = null;
-        if (!mounted.current) {
-          player.destroy();
-          return;
-        }
+        if (!mounted.current || syncRef.current) return;
         const created = createMediaSync({
           player,
           now: serverNowEstimate,
@@ -79,17 +100,21 @@ export function useMediaSync(): MediaSyncState {
         setSync(created);
       })
       .catch(() => {
+        pending.current = null;
         if (mounted.current) setFailed(true);
       });
-  }, [media?.videoId]);
+  }, [media?.videoId, laidOut]);
 
   useEffect(
     () => () => {
       mounted.current = false;
       syncRef.current?.dispose();
       syncRef.current = null;
-      pendingPlayer.current?.destroy();
-      pendingPlayer.current = null;
+      // A player that was still being built must not outlive the card, or its
+      // audio keeps going after the room is gone.
+      void pending.current?.then((player) => {
+        if (!mounted.current) player.destroy();
+      });
     },
     [],
   );

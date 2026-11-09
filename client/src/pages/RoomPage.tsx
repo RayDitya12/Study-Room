@@ -174,7 +174,7 @@ export function RoomPage() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-3 border-b border-surface0 px-4 py-3">
+      <header className="flex items-center gap-2 border-b border-surface0 px-3 py-3 sm:gap-3 sm:px-4">
         <Link
           to="/"
           aria-label={t('common.back')}
@@ -186,19 +186,19 @@ export function RoomPage() {
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-semibold text-text">{roomName || t('app.title')}</h1>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs tracking-widest text-subtext0">{code}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="shrink-0 font-mono text-xs tracking-widest text-subtext0">{code}</span>
             <button
               type="button"
               onClick={() => void copyLink()}
-              className="rounded-md px-1.5 py-0.5 text-xs text-mauve hover:bg-surface0"
+              className="shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs text-mauve hover:bg-surface0"
             >
               {t('room.copyLink')}
             </button>
             {strictFocus ? (
               <span
                 title={t('focus.badgeHint')}
-                className="rounded-full bg-teal/15 px-2 py-0.5 text-xs font-medium text-teal"
+                className="shrink-0 whitespace-nowrap rounded-full bg-teal/15 px-2 py-0.5 text-xs font-medium text-teal"
               >
                 {t('focus.badge')}
               </span>

@@ -41,7 +41,7 @@ export function JoinDialog({ open, roomName, hasPassword, error, busy, onSubmit 
   const message = localError ?? error;
 
   return (
-    <Dialog open={open} title={t('join.title', { name: roomName })} onClose={() => undefined}>
+    <Dialog open={open} title={t('join.title', { name: roomName })}>
       <form
         className="space-y-4"
         onSubmit={(e) => {

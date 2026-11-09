@@ -23,7 +23,7 @@ export function ConfirmDialog({ request, onCancel }: ConfirmDialogProps) {
   return (
     <Dialog open title={request.title} onClose={onCancel}>
       <p className="text-sm text-subtext0">{request.body}</p>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
           {t('confirm.cancel')}
         </Button>

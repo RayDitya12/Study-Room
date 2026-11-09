@@ -2,26 +2,36 @@
 
 Real-time study rooms you can open in a browser and share with a link. Create a room, send the
 6-character code, and everyone inside shares one **server-authoritative Pomodoro timer**, a live
-member list with per-person status and current task, and chat with typing indicators. No accounts:
+member list with per-person status and current task, chat with typing indicators, and one YouTube
+video that plays in step on every screen. No accounts:
 you pick a nickname, the app remembers you, and if you refresh or lose connection your seat is
 waiting for you.
 
 **Features**
 
 - Rooms by code or link (`/r/:CODE`), optional password, max 30 members
-- Shared timer: focus / break / long break, configurable durations, cycles before long break,
-  optional auto-start, controlled by the host, host-appointed moderators, or everyone
+- Shared timer: focus / break / long break, four presets (25/5, 15/3, 50/10, 90/20) or your own
+  durations, cycles before long break, optional auto-start, controlled by the host, host-appointed
+  moderators, or everyone
 - Presence that survives a refresh: grace period, multi-tab as one member, automatic host transfer
 - Host-only member menu: moderator, mute, kick and ban, each confirmed, with a list to lift blocks
 - Chat with last 100 messages persisted, typing indicator, translated system lines
 - Per-member status (Focusing / Break / Away) and "current task" text
+- Shared music: a host or moderator pastes a YouTube link and the whole room plays the same video at
+  the same position, with play, seek, loop and clear in sync
 - Phase-change chime synthesised with WebAudio (no audio files), sound toggle and a picker for 10 chime
   voices, saved per device
+- Ambient noise (white, pink, brown, rain, waves) synthesised locally, with a volume slider and an
+  only-during-focus switch. Nobody else in the room hears it, and nothing about it is sent anywhere
+- Opt-in focus tracking: while a focus phase runs, the room sees only that your tab was hidden, and you
+  get an away count, a focus percentage for the session and a list of your last ten sessions
 - Catppuccin themes: Mocha (dark) and Latte (light), flash-free; the system setting decides the first
   run and the toggle only ever switches between those two
 - JetBrains Mono across the whole UI: a locally installed JetBrainsMono Nerd Font is used when present,
   otherwise a bundled subset webfont (~40 kB for latin) is served
 - English and Indonesian, switchable at runtime
+- Every personal setting (theme, language, sounds, volumes, ambient, timer style, focus opt-in, music
+  volume) lives in `localStorage` on your device, not in the room
 
 ## Screenshots
 
@@ -42,7 +52,7 @@ flowchart LR
   EX --> RM[RoomManager]
   RH --> RM
   RM --> RT[RoomRuntime per room]
-  RT --> TM[timerMachine pure functions from shared/]
+  RT --> TM[timerMachine + mediaMachine pure functions from shared/]
   RT --> ST[RoomStore]
   ST --> MEM[(memoryStore)]
   ST --> PG[(prismaStore -> PostgreSQL)]
@@ -73,11 +83,12 @@ past the grace period, the role goes automatically to the online member with the
 
 **Moderators.** There is always exactly one host, but the host can hand out a lower tier: the three-dot
 menu on a member row offers timer control, make host, mute, kick and ban. A moderator may drive the
-timer — start, pause, reset, skip — and nothing else: room settings, role changes and moderation stay
-host-only, and every one of those checks is enforced on the server, not just hidden in the UI.
-Promoting a moderator to host clears the flag. In chat the host's name is gold and a moderator's is
-silver. The flag lives with the member's presence, so like status and task it is not persisted across a
-server restart.
+timer and the shared music — start, pause, reset, skip, and every `media:*` command — and nothing else:
+room settings, role changes and moderation stay host-only, and every one of those checks is enforced on
+the server, not just hidden in the UI. Promoting a moderator to host clears the flag. In chat the host's
+name is gold and a moderator's is silver. The list of moderator `clientId`s is stored on the room row
+(`modClientIds`), so a server restart restores the tier along with the room; a moderator who is not
+present is simply not shown until they rejoin.
 
 **Kick and ban.** Mute blocks chat only: `chat:send` answers `MUTED` and that member's typing
 indicators are dropped without a broadcast. A kick writes a `RoomBlock` row that expires after 15
@@ -87,11 +98,31 @@ rejoining in a loop. Blocked ids are refused at the door by `room:join` (`KICKED
 a new nickname, and the host can lift any block early from the "Blocked" list. Blocks are stored by
 `userId`, never by `clientId`.
 
-**Timer sound.** When a phase ends on your own device the client synthesises a short chime with
-WebAudio — no audio files are downloaded, and the room is not involved. The slider icon opens a picker
-with 10 voices (classic, bell, chime, marimba, beep, pulse, gong, pluck, arpeggio, sweep); choosing one
-plays it immediately as a preview. The choice and the on/off toggle are stored in `localStorage` next to
-the theme and language, because a chime is a personal preference, not room state.
+**Shared music.** Like the timer, the video is server state: `{ videoId, status, anchorPositionMs,
+anchorAt, loop, version }`, mutated only through the pure `mediaMachine` in `shared/` and broadcast as
+`media:state`. The server keeps the validated 11-character id, never a URL — `parseYouTubeVideoId`
+accepts watch / youtu.be / embed / shorts / live / music.youtube.com / mobile links and a bare id, and
+rejects every other host, look-alike hosts, userinfo tricks, `javascript:` and playlist-only links. The
+client builds the embed through the official IFrame API with that id, so no user string ever becomes a
+frame `src`. Everyone's position is derived from the same server clock the timer uses, then corrected
+locally when it drifts more than 2 s (never while buffering, never for a live stream); a looped video
+wraps instead of ending. `media:*` is limited to 6 commands per 10 s per person. Only the id, the
+position and who set it are shared — the video's title is read from the player and stays on the device
+that played it. If a video cannot be embedded, the person who is watching sees why and nobody else's
+room breaks.
+
+**Sound on your own device.** The chime, the ten alert voices and the ambient noise are all synthesised
+with WebAudio: no audio files ship with the app and no audio event touches the socket. Ambient is a
+local loop with its own volume, optionally gated to the focus phase, and the only trace of it in the
+room is the tint on your own header icon.
+
+**Focus tracking (opt-in).** `focus:state` carries exactly one boolean: this tab is hidden. The server
+does the arithmetic — `awayCount`, `awayMs` and the active window of the running focus phase are
+measured with the server clock in `server/src/focus/focusTracker.ts`, and a session summary is emitted
+when a focus phase completes, is skipped or is reset. What leaves the device is a count and a duration;
+which tab, window or application took its place never does, and the server has no field to put it in.
+It is an accountability aid, not enforcement: switching to another monitor or another browser window on
+a visible screen reports nothing.
 
 **Identity model.** The browser generates one `clientId` (UUID v4) and keeps it in `localStorage`.
 It is a secret: it is sent only to the server on join and is never broadcast. Everything other users
@@ -101,12 +132,14 @@ per room (`Anna`, `Anna (2)`, ...) and sanitized (control characters and zero-wi
 formatting characters are stripped).
 
 **Why `shared/` exists.** `shared/` holds the Zod schemas, the event maps
-(`ClientToServerEvents` / `ServerToClientEvents`) and the pure timer machine. The server instantiates
+(`ClientToServerEvents` / `ServerToClientEvents`) and the pure machines. The server instantiates
 `Server<C2S, S2C, ...>` and the client `Socket<S2C, C2S>` with those same maps, so a renamed event or
-a changed payload is a compile error on both sides instead of a runtime surprise. The timer machine
-is pure (`start`, `pause`, `reset`, `complete`, `skip`, `applySettings` — no I/O, no `setTimeout`,
-every function returns a new object with `version + 1`), which is why it can be tested exhaustively
-in `shared` and reused by the server without a second implementation.
+a changed payload is a compile error on both sides instead of a runtime surprise. The timer and media
+machines are pure (`start`, `pause`, `reset`, `complete`, `skip`, `applySettings`; `setVideo`, `play`,
+`pause`, `seek`, `setLoop`, `clear` — no I/O, no `setTimeout`, every function returns a new object with
+`version + 1`, or the *same* object when there is nothing to change, which is how callers know not to
+broadcast or write to disk), which is why they can be tested exhaustively in `shared` and reused by the
+server and by the client's sync engine without a second implementation.
 
 ## Getting started
 
@@ -144,6 +177,11 @@ To see the moderation menu, use the host window: the ⋮ on the other member ask
 before a role change or a removal, "Blocked" in the Members header lists kicks and bans and lifts them,
 and the removed window lands on a "you were removed" screen instead of rejoining.
 
+To see the music sync, paste a YouTube link in the host window and click **Play**. The second window
+gets the same video; the first time, it needs one click on **Join the music** (browsers refuse to start
+audio on their own). After that, pause, seek, loop and clear land in both windows within a second, and
+so does a refresh — the reloaded window resumes at the room's current position.
+
 ### Full start (Postgres)
 
 ```bash
@@ -154,8 +192,10 @@ npm run dev
 ```
 
 `docker compose up` (without `-d db`) also builds and runs the server container on port 3001.
-Re-run `npm run db:push` after pulling, whenever `schema.prisma` changed — that is how the `RoomBlock`
-table gets added to an existing database.
+Re-run `npm run db:push` after pulling, whenever `schema.prisma` changed — that is how an existing
+database gains the `RoomBlock` table and, from the add-on features, the `Room` columns `modClientIds`,
+`strictFocus`, `mediaVideoId` and `mediaLoop`. The app starts and reads fine against an old database
+but every new feature fails to persist, so push first if music or moderators will not survive a restart.
 
 ### Environment variables
 
@@ -194,19 +234,56 @@ npm test
 ```
 
 - **shared** — the timer machine (transitions, `autoStart`, `skip` not counting a focus session,
-  `applySettings` while idle vs running, immutability, `version`) and the Zod schemas.
+  `applySettings` while idle vs running, immutability, `version`), the media machine (set / play /
+  pause / seek / loop / clear, `positionAt` against a fake clock, no-op identity, `effectivePositionMs`
+  with and without a loop, `computeCorrection` thresholds and buffering), `parseYouTubeVideoId`
+  (every accepted link shape, every rejected host, trick and length), `TIMER_PRESETS` inside `LIMITS`
+  and the Zod schemas.
 - **server unit** — text sanitizing, the token-bucket and failure rate limiters (fake clock), id
-  generation, REST routes, and `RoomRuntime` with a fake clock: phase auto-advance, auto-start
-  chaining, grace removal, reconnect cancelling grace, host transfer, empty-room pause, nickname
-  de-duplication, timer permissions, moderator appointments, mute, kick/ban blocks and their
-  cooldown, block list, boot recovery.
-- **server integration** — the real HTTP + Socket.io server on a random port with two
+  generation, REST routes, the focus tracker (every transition: pause freezes but never ends, away
+  across a phase boundary counts once, disconnect while away, `focusPct` clamping, empty sessions),
+  and `RoomRuntime` with a fake clock: phase auto-advance, auto-start chaining, grace removal,
+  reconnect cancelling grace, host transfer, empty-room pause, nickname de-duplication, timer
+  permissions, moderator appointments, mute, kick/ban blocks and their cooldown, block list, boot
+  recovery, media transitions and their limiter, media persisting and reloading as paused, and focus
+  summaries emitted on complete / skip / reset but never on a pause.
+- **server integration** — the real HTTP + Socket.io server on a random port with two or three
   `socket.io-client` instances: presence, chat, passwords, permissions, grace/reconnect, host
   transfer, moderators, mute, kick/ban (`room:kicked`, rejoin refused, unban), rate limits,
-  `time:sync`.
+  `time:sync`, shared media (member refused, host and moderator accepted, both windows get the same
+  `media:state`, a late joiner's snapshot carries the video, bad links and `NO_MEDIA`), and focus
+  tracking end to end (opt-in, away counts observed by the other member, summary on skip).
 - **client** — i18n key/placeholder parity between `en` and `id`, `formatRemaining`, clock-offset
-  selection, chat name colours per role, and the room store (snapshot replacement, system lines,
-  out-of-order timer versions, typing expiry, removal of a kicked member and the self-kicked screen).
+  selection, chat name colours per role, the ten alert voices and the noise generator, preset matching,
+  the preference migration (an old stored object without the new keys), local focus history keeping ten
+  entries, the room store (snapshot replacement, system lines, out-of-order timer and media versions,
+  typing expiry, removal of a kicked member and the self-kicked screen), and the media sync engine
+  against a fake player (load / seek / play call order, no correction while buffering or on a live
+  stream, loop wrapping, local ending, the autoplay watchdog).
+
+There is no jsdom in the client workspace, so client tests only cover DOM-free modules: pure `lib/*`
+helpers and the zustand stores. Anything that touches the DOM lives behind a hook that is verified by
+hand in two tabs.
+
+## Privacy
+
+- **What the server keeps.** Room name and code, a bcrypt hash if you set a password, the timer state,
+  the last 100 messages, the member roster (nickname, status, task, host and moderator flags), kick/ban
+  blocks, and the shared video id plus its loop flag. Rooms are deleted after `ROOM_TTL_DAYS` of
+  inactivity.
+- **What identifies you.** A random UUID (`clientId`) in `localStorage`, sent only when you join. Other
+  people see `userId`, a truncated hash of it scoped to one room, so your activity in one room cannot be
+  linked to another.
+- **What focus tracking shares.** That this browser tab was hidden, counted and totalled by the server.
+  It never sees a URL, a page title, an app name, a screenshot or anything else about what you did
+  instead. Your opt-in choice and your own session history stay on the device.
+- **What the music feature shares.** The 11-character video id, who set it, and where the room is in
+  the video. The player's title is read locally and displayed locally. YouTube itself sees the embed as
+  an ordinary visit from your browser (the frame is served from `youtube-nocookie.com`, which reduces
+  but does not eliminate that), and nothing about playback is reported back to this app's server.
+- **What never leaves your device.** Theme, language, timer style, chime voice and volume, ambient
+  noise choice and volume, music volume and the listen switch, focus opt-in, and the last ten focus
+  sessions — all in `localStorage`.
 
 ## Windows / PowerShell notes
 
@@ -256,9 +333,9 @@ Directory to `client`, which uses the file where it is).
 ## Project layout
 
 ```
-shared/   constants, zod schemas, types, typed event maps, pure timer machine
-server/   express + socket.io, RoomManager/RoomRuntime, memory + prisma stores, prisma schema
-client/   react 19 + vite 7 + tailwind 4, zustand stores, i18n (en/id), Catppuccin themes
+shared/   constants, zod schemas, types, typed event maps, pure timer + media machines, YouTube parser
+server/   express + socket.io, RoomManager/RoomRuntime, focus tracker, memory + prisma stores, prisma schema
+client/   react 19 + vite 7 + tailwind 4, zustand stores, media sync engine, i18n (en/id), Catppuccin themes
 ```
 
 `shared/` is consumed as TypeScript source: the server bundles it with `tsup`
@@ -274,5 +351,22 @@ client/   react 19 + vite 7 + tailwind 4, zustand stores, i18n (en/id), Catppucc
   this.
 - **`prisma db push` instead of migrations.** Fine for v1 and for a schema that is only added to, but
   a destructive change needs `prisma migrate` with real migration files.
+- **Focus tracking sees the tab, not the person.** It is built on `document.visibilityState`, which
+  fires when the tab is backgrounded or the device sleeps. Moving the window aside, using a second
+  monitor, or opening another browser window while this one stays visible reports nothing, and a
+  determined person can simply leave the tab open. It cannot block a site, an app or a phone, and it is
+  not a productivity measurement — it is one honest number about one tab, opt-in, shared only with the
+  room you are in.
+- **Music depends on YouTube.** Only videos whose owner allows embedding can play, so a private,
+  removed or embed-blocked video shows a plain "this cannot be played here" line to the people watching
+  it; the room keeps running either way. Playback starts only after a click (`Join the music`), because
+  browsers require a gesture before sound. Positions are matched against the server clock and corrected
+  when a device drifts more than two seconds, so windows agree to roughly a second, not to the
+  millisecond, and a livestream has no position to match at all. The player is an iframe from
+  `youtube-nocookie.com`, and by design it is never hidden or shrunk below 16:9 / 200 px while it is
+  playing — YouTube's embedding terms ask for a visible player, and a room full of muted tabs pretending
+  to be a music app is not what this is. On a phone the player is only built once the card is actually on
+  screen, so a listener who never opens the Music tab gets it the moment the room starts playing.
 - Rooms are deleted after `ROOM_TTL_DAYS` of inactivity; messages are capped at the last 100 per room.
-- No end-to-end browser tests (Vitest only); the room page is verified manually in two tabs.
+- No end-to-end browser tests (Vitest only). Use the two-tab recipe above to check the room page,
+  the shared music and the focus summary by hand.

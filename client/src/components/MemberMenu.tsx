@@ -79,9 +79,36 @@ export function MemberMenu({
 
   useEffect(() => {
     if (!pos) return;
+    const menu = menuRef.current;
+    const items = (): HTMLElement[] =>
+      Array.from(menu?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
     const close = (): void => setPos(null);
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape' || e.key === 'Tab') {
+        close();
+        triggerRef.current?.focus();
+        return;
+      }
+      if (!menu?.contains(document.activeElement)) return;
+      const list = items();
+      if (list.length === 0) return;
+      const active = document.activeElement;
+      const index = active instanceof HTMLElement ? list.indexOf(active) : -1;
+      if (e.key === 'Home') {
+        e.preventDefault();
+        list[0]?.focus();
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        list[list.length - 1]?.focus();
+        return;
+      }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      const from = index < 0 ? (step === 1 ? -1 : 0) : index;
+      list[(from + step + list.length) % list.length]?.focus();
     };
     const onMouseDown = (e: MouseEvent): void => {
       const target = e.target as Node;
@@ -93,6 +120,7 @@ export function MemberMenu({
     // The menu is positioned against the trigger, so any scroll makes it stale.
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
+    items()[0]?.focus();
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('mousedown', onMouseDown);
@@ -103,6 +131,8 @@ export function MemberMenu({
 
   const pick = (action: () => void): void => {
     setPos(null);
+    // The confirmation dialog remembers this as the element to return focus to.
+    triggerRef.current?.focus();
     action();
   };
 
