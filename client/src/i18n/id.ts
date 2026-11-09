@@ -199,6 +199,18 @@ export const id: Messages = {
     timerStyle: 'Gaya timer',
     ring: 'Lingkaran',
     minimal: 'Minimalis',
+    ambient: 'Ambient',
+    ambientHint: 'Diputar pelan di perangkat ini. Orang lain di ruang ini tidak mendengarnya.',
+    ambientVolume: 'Volume ambient',
+    ambientFocusOnly: 'Hanya bunyi saat fokus',
+    ambientTypes: {
+      off: 'Nonaktif',
+      white: 'White noise',
+      pink: 'Pink noise',
+      brown: 'Brown noise',
+      rain: 'Suara hujan',
+      waves: 'Suara ombak',
+    },
   },
   notFound: {
     title: 'Halaman tidak ditemukan',

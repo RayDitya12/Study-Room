@@ -5,6 +5,7 @@ import { getRoomMeta, type RoomMeta } from '../lib/api';
 import { serverNowEstimate } from '../lib/clock';
 import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
+import { useAmbient } from '../hooks/useAmbient';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useNow } from '../hooks/useNow';
 import { useRoomConnection } from '../hooks/useRoomConnection';
@@ -40,6 +41,7 @@ export function RoomPage() {
   const [unread, setUnread] = useState(0);
 
   const { autoJoinPending, actions } = useRoomConnection(code);
+  useAmbient();
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const roomName = useRoomStore((s) => s.name);
   const timer = useRoomStore((s) => s.timer);

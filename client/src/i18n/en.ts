@@ -197,6 +197,18 @@ export const en = {
     timerStyle: 'Timer style',
     ring: 'Ring',
     minimal: 'Minimal',
+    ambient: 'Ambient',
+    ambientHint: 'Loops quietly on this device. Nobody else in the room hears it.',
+    ambientVolume: 'Ambient volume',
+    ambientFocusOnly: 'Only play while focusing',
+    ambientTypes: {
+      off: 'Off',
+      white: 'White noise',
+      pink: 'Pink noise',
+      brown: 'Brown noise',
+      rain: 'Rain',
+      waves: 'Ocean waves',
+    },
   },
   notFound: {
     title: 'Page not found',

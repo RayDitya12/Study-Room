@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALERT_SOUNDS, previewAlert } from '../lib/alertSounds';
-import { useT } from '../i18n/useT';
+import type { AmbientPref } from '../stores/prefsStore';
 import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
+import { useT } from '../i18n/useT';
 
 const PANEL_WIDTH = 244;
-const PANEL_HEIGHT = 380;
+/** The three groups are taller than this, so the panel scrolls inside. */
+const PANEL_HEIGHT = 420;
 const SMALL_SCREEN = '(max-width: 639.98px)';
 
 const TIMER_STYLES: TimerStylePref[] = ['ring', 'minimal'];
+const AMBIENT_TYPES: AmbientPref[] = ['off', 'white', 'pink', 'brown', 'rain', 'waves'];
 
 /** Anchored under the header button on desktop, a bottom sheet on small screens. */
-type Anchor = { top: number; left: number } | 'sheet';
+type Anchor = { top: number; left: number; maxHeight: number } | 'sheet';
 
 export function SoundDisplayPopover() {
   const t = useT();
@@ -23,6 +26,12 @@ export function SoundDisplayPopover() {
   const setAlertVolume = usePrefsStore((s) => s.setAlertVolume);
   const soundOn = usePrefsStore((s) => s.soundOn);
   const toggleSound = usePrefsStore((s) => s.toggleSound);
+  const ambientType = usePrefsStore((s) => s.ambientType);
+  const setAmbientType = usePrefsStore((s) => s.setAmbientType);
+  const ambientVolume = usePrefsStore((s) => s.ambientVolume);
+  const setAmbientVolume = usePrefsStore((s) => s.setAmbientVolume);
+  const ambientOnlyWhileFocus = usePrefsStore((s) => s.ambientOnlyWhileFocus);
+  const setAmbientOnlyWhileFocus = usePrefsStore((s) => s.setAmbientOnlyWhileFocus);
   const timerStyle = usePrefsStore((s) => s.timerStyle);
   const setTimerStyle = usePrefsStore((s) => s.setTimerStyle);
 
@@ -62,9 +71,12 @@ export function SoundDisplayPopover() {
     }
     const left = Math.max(8, Math.min(rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - 8));
     const below = window.innerHeight - rect.bottom;
-    const top =
-      below >= PANEL_HEIGHT + 8 ? rect.bottom + 4 : Math.max(8, rect.top - PANEL_HEIGHT - 4);
-    setAnchor({ top, left });
+    const underneath = below >= PANEL_HEIGHT + 8;
+    setAnchor({
+      top: underneath ? rect.bottom + 4 : Math.max(8, rect.top - PANEL_HEIGHT - 4),
+      left,
+      maxHeight: Math.max(160, (underneath ? below : rect.top) - 16),
+    });
   };
 
   const pick = (id: (typeof ALERT_SOUNDS)[number]['id']): void => {
@@ -85,8 +97,8 @@ export function SoundDisplayPopover() {
         title={t('display.title')}
         aria-label={t('display.title')}
         className={`rounded-lg p-2 transition-colors hover:bg-surface0 hover:text-text ${
-          open ? 'bg-surface0 text-text' : 'text-subtext0'
-        }`}
+          ambientType !== 'off' ? 'text-mauve' : 'text-subtext0'
+        } ${open ? 'bg-surface0' : ''}`}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -100,9 +112,11 @@ export function SoundDisplayPopover() {
           role="dialog"
           aria-label={t('display.title')}
           style={
-            anchor === 'sheet' ? undefined : { top: anchor.top, left: anchor.left, width: PANEL_WIDTH }
+            anchor === 'sheet'
+              ? { maxHeight: '65dvh' }
+              : { top: anchor.top, left: anchor.left, width: PANEL_WIDTH, maxHeight: anchor.maxHeight }
           }
-          className={`fixed z-50 max-h-[calc(100dvh-16px)] space-y-4 overflow-y-auto rounded-xl border border-surface1 bg-base p-3 shadow-lg ${
+          className={`fixed z-50 space-y-4 overflow-y-auto rounded-xl border border-surface1 bg-base p-3 shadow-lg ${
             anchor === 'sheet' ? 'inset-x-3 bottom-3' : ''
           }`}
         >
@@ -164,6 +178,57 @@ export function SoundDisplayPopover() {
                 role="switch"
                 checked={soundOn}
                 onChange={toggleSound}
+                className="h-5 w-5 accent-mauve"
+              />
+            </label>
+          </fieldset>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-subtext0">{t('display.ambient')}</legend>
+            <p className="text-xs text-subtext0">{t('display.ambientHint')}</p>
+            <div className="space-y-0.5">
+              {AMBIENT_TYPES.map((value) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-center gap-2 py-1 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="ambient-type"
+                    checked={ambientType === value}
+                    onChange={() => setAmbientType(value)}
+                    className="accent-mauve"
+                  />
+                  <span className={ambientType === value ? 'text-text' : 'text-subtext0'}>
+                    {t(`display.ambientTypes.${value}`)}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <label className="block space-y-1">
+              <span className="flex items-center justify-between text-sm text-subtext0">
+                <span>{t('display.ambientVolume')}</span>
+                <span className="tabular-nums text-xs text-text">{ambientVolume}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={ambientVolume}
+                onChange={(e) => setAmbientVolume(Number(e.currentTarget.value))}
+                aria-label={t('display.ambientVolume')}
+                className="w-full accent-mauve"
+              />
+            </label>
+
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="text-sm text-subtext0">{t('display.ambientFocusOnly')}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={ambientOnlyWhileFocus}
+                onChange={(e) => setAmbientOnlyWhileFocus(e.currentTarget.checked)}
                 className="h-5 w-5 accent-mauve"
               />
             </label>

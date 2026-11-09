@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROOM_CODE_LENGTH } from '@studyroom/shared';
+import { useAmbient } from '../hooks/useAmbient';
 import { useT } from '../i18n/useT';
 import { Button } from '../components/Button';
 import { CreateRoomForm } from '../components/CreateRoomForm';
@@ -17,6 +18,7 @@ export function Home() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [joinError, setJoinError] = useState('');
+  useAmbient();
 
   const onJoin = (e: FormEvent) => {
     e.preventDefault();
