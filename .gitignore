@@ -15,3 +15,7 @@ Thumbs.db
 npm-debug.log*
 
 .vercel
+
+# Local build briefs, kept off the public history
+SPEC.md
+SPEC-ADDON.md
