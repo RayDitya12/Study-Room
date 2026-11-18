@@ -60,7 +60,6 @@ export const en = {
     sections: 'Room sections',
     reconnecting: 'Reconnecting…',
     settings: 'Settings',
-    statusOnline: '{count} online',
     statusCycle: 'cycle {current}/{total}',
   },
   palette: {

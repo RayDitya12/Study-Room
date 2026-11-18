@@ -284,7 +284,7 @@ export function RoomPage() {
           `${t(`timer.${timer.phase}`).toUpperCase()} ${formatRemaining(
             getRemainingMs(timer, serverNowEstimate()),
           )}`,
-          t('room.statusOnline', { count: onlineCount }),
+          t('members.onlineCount', { count: onlineCount }),
           t('room.statusCycle', {
             current: Math.min(timer.completedFocus + 1, settings.cyclesBeforeLong),
             total: settings.cyclesBeforeLong,

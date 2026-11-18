@@ -62,7 +62,6 @@ export const id: Messages = {
     sections: 'Bagian ruangan',
     reconnecting: 'Menghubungkan ulang…',
     settings: 'Pengaturan',
-    statusOnline: '{count} daring',
     statusCycle: 'siklus {current}/{total}',
   },
   palette: {
