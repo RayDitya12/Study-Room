@@ -14,6 +14,7 @@ export const id: Messages = {
     createDescription: 'Dapatkan kode dan tautan untuk dibagikan.',
     joinTitle: 'Gabung ruang',
     joinDescription: 'Masukkan kode ruang 6 karakter.',
+    joinHint: 'Ruangnya akan menanyakan nama panggilanmu saat kamu masuk.',
     roomName: 'Nama ruang',
     roomNamePlaceholder: 'Fokus pagi',
     password: 'Kata sandi (opsional)',
@@ -26,6 +27,23 @@ export const id: Messages = {
     invalidCode: 'Masukkan kode 6 karakter.',
     invalidName: 'Masukkan nama ruang.',
     invalidNickname: 'Nama panggilan harus 2-20 karakter.',
+  },
+  recent: {
+    title: 'Lanjutkan',
+    remove: 'Hapus {code} dari daftar ini',
+    today: 'Dipakai hari ini',
+    yesterday: 'Dipakai kemarin',
+    daysAgo: 'Dipakai {count} hari lalu',
+  },
+  preview: {
+    title: 'Seperti ini isinya',
+    body: 'Satu timer untuk semua orang, siapa saja yang ikut dan apa yang mereka kerjakan, plus chat yang boleh kamu abaikan.',
+    task1: 'Membaca bab 4',
+    task2: 'Menulis pendahuluan',
+    note: 'Gambaran ruang yang sedang berjalan. Tidak ada yang aktif di sini.',
+  },
+  server: {
+    waking: 'Membangunkan server…',
   },
   join: {
     title: 'Gabung {name}',

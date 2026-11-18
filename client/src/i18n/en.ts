@@ -12,6 +12,7 @@ export const en = {
     createDescription: 'Get a shareable code and link.',
     joinTitle: 'Join a room',
     joinDescription: 'Enter the 6-character room code.',
+    joinHint: 'The room asks your nickname when you arrive.',
     roomName: 'Room name',
     roomNamePlaceholder: 'Morning focus',
     password: 'Password (optional)',
@@ -24,6 +25,23 @@ export const en = {
     invalidCode: 'Enter the 6-character code.',
     invalidName: 'Enter a room name.',
     invalidNickname: 'Nickname must be 2-20 characters.',
+  },
+  recent: {
+    title: 'Jump back in',
+    remove: 'Remove {code} from this list',
+    today: 'Used today',
+    yesterday: 'Used yesterday',
+    daysAgo: 'Used {count} days ago',
+  },
+  preview: {
+    title: 'What a room looks like',
+    body: 'One timer for everyone, who is here and what they are working on, and a chat you are free to ignore.',
+    task1: 'Reading chapter 4',
+    task2: 'Writing the intro',
+    note: 'A picture of a room mid-session. Nothing here is live.',
+  },
+  server: {
+    waking: 'Waking up the server…',
   },
   join: {
     title: 'Join {name}',

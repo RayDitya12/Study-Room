@@ -10,6 +10,8 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useFocusTracking } from '../hooks/useFocusTracking';
 import { useNow } from '../hooks/useNow';
 import { useRoomConnection } from '../hooks/useRoomConnection';
+import { useServerWake } from '../hooks/useServerWake';
+import { forgetRoom, rememberRoom } from '../lib/recentRooms';
 import { hasAskedFocusConsent, markFocusConsentAsked } from '../lib/session';
 import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
@@ -50,15 +52,18 @@ export function RoomPage() {
 
   const [meta, setMeta] = useState<RoomMeta | null>(null);
   const [missing, setMissing] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinBusy, setJoinBusy] = useState(false);
   const [tab, setTab] = useState<Tab>('timer');
   const [unread, setUnread] = useState(0);
 
   const { autoJoinPending, actions } = useRoomConnection(code);
+  const { waking, healthyAt } = useServerWake();
   useAmbient();
   useFocusTracking(actions);
   const hasRoom = useRoomStore((s) => s.hasRoom);
+  const roomCode = useRoomStore((s) => s.code);
   const roomName = useRoomStore((s) => s.name);
   const timer = useRoomStore((s) => s.timer);
   const messages = useRoomStore((s) => s.messages);
@@ -76,6 +81,9 @@ export function RoomPage() {
   const musicHeard = media?.status === 'playing' && musicListening;
   const strictFocus = settings?.strictFocus === true;
   const onlineCount = members.filter((m) => m.online).length;
+  // The store keeps the room you were in until this one's first snapshot lands,
+  // so "in a room" only means something as "in *this* room".
+  const inThisRoom = hasRoom && roomCode === code;
   const [consentAsked, setConsentAsked] = useState(false);
   useNow(1_000);
 
@@ -88,21 +96,50 @@ export function RoomPage() {
     setConsentAsked(true);
   }, [strictFocus, focusTracking, hasRoom, consentAsked, code]);
 
+  // A new code is a different question, so the old answer cannot survive it:
+  // React keeps this component mounted when only the param changes, and one
+  // dead link used to leave every room opened after it reading "not found".
+  // Done while rendering rather than in an effect, because an effect paints the
+  // stale screen for a frame before correcting itself.
+  const [askedCode, setAskedCode] = useState(code);
+  if (askedCode !== code) {
+    setAskedCode(code);
+    setMeta(null);
+    setMissing(false);
+    setUnreachable(false);
+    setJoinError(null);
+  }
+
   useEffect(() => {
     let cancelled = false;
     getRoomMeta(code)
       .then((result) => {
         if (cancelled) return;
-        if (result.exists) setMeta(result);
-        else setMissing(true);
+        setUnreachable(false);
+        if (result.exists) {
+          setMeta(result);
+          return;
+        }
+        // The room really is gone, so it should stop offering itself at home.
+        forgetRoom(code);
+        setMissing(true);
       })
       .catch(() => {
-        if (!cancelled) setMissing(true);
+        // A host that is still asleep is not a room that has been deleted, and
+        // saying so is the difference between waiting and giving up.
+        if (!cancelled) setUnreachable(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, healthyAt]);
+
+  // The home page offers back what you actually use, so it is recorded here,
+  // where the name has arrived from the room rather than from a form.
+  useEffect(() => {
+    if (!inThisRoom || !roomName) return;
+    rememberRoom({ code, name: roomName }, Date.now());
+  }, [inThisRoom, roomName, code]);
 
   const seenCount = useRef(messages.length);
   useEffect(() => {
@@ -216,6 +253,15 @@ export function RoomPage() {
       </header>
 
       <ConnectionBanner />
+
+      {!inThisRoom && (waking || unreachable) ? (
+        <p
+          role="status"
+          className="border-b border-surface0 bg-mantle px-4 py-2 text-center text-xs text-muted"
+        >
+          {t('server.waking')}
+        </p>
+      ) : null}
 
       <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)_360px]">
         <div className={panel(tab === 'members')}>
