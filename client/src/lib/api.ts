@@ -46,3 +46,17 @@ export async function getRoomMeta(code: string): Promise<RoomMeta> {
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as RoomMeta;
 }
+
+/**
+ * Whether the server answers at all. A free host sleeps between visits, and the
+ * difference between "asleep" and "this room is gone" is the difference between
+ * waiting and giving up — so the interface asks instead of guessing.
+ */
+export async function pingServer(): Promise<boolean> {
+  try {
+    return (await fetch(`${BASE}/health`)).ok;
+  } catch {
+    // Nothing listening yet, or the request never left the device.
+    return false;
+  }
+}
