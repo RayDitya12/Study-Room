@@ -71,9 +71,11 @@ export const id: Messages = {
     pause: 'Jeda',
     reset: 'Atur ulang',
     skip: 'Lewati',
-    hostOnly: 'Hanya host dan moderator yang bisa mengendalikan timer',
+    hostControls: 'Host yang mengendalikan timer',
     paused: 'Dijeda',
     cycle: 'Siklus {current} dari {total}',
+    phaseNow: 'Sekarang: {phase}',
+    next: 'Berikutnya: {phase} {duration}',
     summary: '{name} · {focus} / {break} / {long} mnt · {cycles} siklus',
     settings: 'Pengaturan timer',
     preset: {

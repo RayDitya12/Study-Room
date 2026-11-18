@@ -210,8 +210,8 @@ export function RoomPage() {
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-2 border-b border-surface0 px-2 py-2 sm:gap-3 sm:px-4">
+    <div data-phase={timer?.phase ?? 'focus'} className="flex h-dvh flex-col">
+      <header className="phase-rule flex items-center gap-2 px-2 py-2 sm:gap-3 sm:px-4">
         <Link
           to="/"
           aria-label={t('common.back')}

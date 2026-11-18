@@ -69,9 +69,11 @@ export const en = {
     pause: 'Pause',
     reset: 'Reset',
     skip: 'Skip',
-    hostOnly: 'Only the host and moderators can control the timer',
+    hostControls: 'The host controls the timer',
     paused: 'Paused',
     cycle: 'Cycle {current} of {total}',
+    phaseNow: 'Now: {phase}',
+    next: 'Next: {phase} {duration}',
     summary: '{name} · {focus} / {break} / {long} min · {cycles} cycles',
     settings: 'Timer settings',
     preset: {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getRemainingMs, type RoomSettings } from '@studyroom/shared';
 import { serverNowEstimate } from '../lib/clock';
 import { formatRemaining } from '../lib/format';
+import { nextPhase } from '../lib/nextPhase';
 import { matchPreset } from '../lib/timerPresets';
 import { useNow } from '../hooks/useNow';
 import { usePrefsStore } from '../stores/prefsStore';
@@ -41,6 +42,9 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   const remainingMs = getRemainingMs(timer, serverNowEstimate());
   const progress =
     timer.phaseDurationMs > 0 ? 1 - remainingMs / timer.phaseDurationMs : 0;
+  // Asked of the shared machine rather than re-derived here, so the long break
+  // after the last cycle cannot disagree with the server's.
+  const next = nextPhase(timer, settings);
 
   const run = async (action: TimerAction): Promise<void> => {
     setBusy(true);
@@ -65,6 +69,13 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
       aria-label={t('room.timerTab')}
       className="card flex h-full flex-col items-center justify-center gap-4 rounded-2xl p-4 sm:gap-5 sm:p-6"
     >
+      {/* The digits are aria-live="off" on purpose, so the one thing worth
+          hearing — that the room has switched to break — gets its own region.
+          The text only changes when the phase does. */}
+      <p role="status" className="sr-only">
+        {t('timer.phaseNow', { phase: t(`timer.${timer.phase}`) })}
+      </p>
+
       {timerStyle === 'minimal' ? (
         <div className="flex w-full max-w-[320px] flex-col items-center gap-3">
           <span
@@ -117,7 +128,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
         <Button
           onClick={() => void run(timer.status === 'running' ? 'pause' : 'start')}
           disabled={!canControl || busy}
-          className="min-w-24"
+          className="phase-button min-w-24"
         >
           {t(timer.status === 'running' ? 'timer.pause' : 'timer.start')}
         </Button>
@@ -163,7 +174,15 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
         ) : null}
       </div>
 
-      {!canControl ? <p className="text-xs text-muted">{t('timer.hostOnly')}</p> : null}
+      {!canControl ? (
+        <p className="text-xs text-muted">{t('timer.hostControls')}</p>
+      ) : null}
+      <p className="text-center text-sm text-muted">
+        {t('timer.next', {
+          phase: t(`timer.${next.phase}`),
+          duration: formatRemaining(next.durationMs),
+        })}
+      </p>
       <p className="text-center text-xs text-muted">
         {t('timer.summary', {
           name: t(`timer.preset.${matchPreset(settings)}`),

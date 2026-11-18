@@ -155,6 +155,42 @@ html[data-theme="latte"] {
   box-shadow: var(--card-shadow);
 }
 
+/* The phase, said once in colour. The room container carries `data-phase` and
+   everything that should follow the timer — the page tint, the rule under the
+   header, the primary button — reads these values instead of being told the
+   same thing three times in JSX. The tint is 5% of the accent over the page
+   colour: enough that focus and break feel like different rooms, little enough
+   that no text moves off 4.5:1 (measured, both flavours). */
+[data-phase] {
+  --phase-tint: color-mix(in oklab, var(--phase-fill) 5%, var(--ctp-base));
+  background: var(--phase-tint);
+  transition: background-color 300ms ease;
+}
+
+[data-phase='focus'] {
+  --phase-accent: var(--app-accent-text);
+  --phase-fill: var(--ctp-mauve);
+}
+
+[data-phase='break'] {
+  --phase-accent: var(--app-success-text);
+  --phase-fill: var(--ctp-green);
+}
+
+[data-phase='longBreak'] {
+  --phase-accent: var(--app-info-text);
+  --phase-fill: var(--ctp-blue);
+}
+
+.phase-rule {
+  box-shadow: inset 0 -2px 0 var(--phase-accent);
+}
+
+.phase-button {
+  background: var(--phase-accent);
+  color: var(--ctp-base);
+}
+
 body {
   background: var(--ctp-base);
   color: var(--ctp-text);
