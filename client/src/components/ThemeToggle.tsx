@@ -1,25 +1,12 @@
-import { useEffect, useState } from 'react';
 import { useT } from '../i18n/useT';
 import { usePrefsStore } from '../stores/prefsStore';
-import { DARK_FLAVOR, resolveFlavor } from '../theme/flavors';
+import { useIsDark } from '../hooks/useIsDark';
 
 export function ThemeToggle() {
   const t = useT();
-  const theme = usePrefsStore((s) => s.theme);
   const setTheme = usePrefsStore((s) => s.setTheme);
-  const [prefersDark, setPrefersDark] = useState(
-    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
-  );
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = (event: MediaQueryListEvent) => setPrefersDark(event.matches);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, []);
-
   // 'system' is only the first-run default; the first click pins it to light or dark.
-  const isDark = resolveFlavor(theme, prefersDark) === DARK_FLAVOR;
+  const isDark = useIsDark();
   const label = isDark ? t('theme.dark') : t('theme.light');
 
   return (

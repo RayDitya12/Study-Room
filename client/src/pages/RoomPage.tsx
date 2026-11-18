@@ -1,15 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getRemainingMs, KICK_COOLDOWN_MS } from '@studyroom/shared';
 import { getRoomMeta, type RoomMeta } from '../lib/api';
+import { buildCommands, type CommandId } from '../lib/commands';
 import { serverNowEstimate } from '../lib/clock';
 import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
+import { canControlTimer } from '../lib/permissions';
 import { useAmbient } from '../hooks/useAmbient';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useFocusTracking } from '../hooks/useFocusTracking';
+import { useIsDark } from '../hooks/useIsDark';
 import { useNow } from '../hooks/useNow';
 import { useRoomConnection } from '../hooks/useRoomConnection';
+import { useRoomHotkeys } from '../hooks/useRoomHotkeys';
 import { useServerWake } from '../hooks/useServerWake';
 import { forgetRoom, rememberRoom } from '../lib/recentRooms';
 import { hasAskedFocusConsent, markFocusConsentAsked } from '../lib/session';
@@ -18,6 +22,7 @@ import { useRoomStore } from '../stores/roomStore';
 import { useToastStore } from '../stores/toastStore';
 import { useT } from '../i18n/useT';
 import { ChatPanel } from '../components/ChatPanel';
+import { CommandPalette } from '../components/CommandPalette';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { FocusConsentDialog } from '../components/FocusConsentDialog';
 import { FocusSummaryDialog } from '../components/FocusSummaryDialog';
@@ -75,7 +80,8 @@ export function RoomPage() {
   const musicListening = usePrefsStore((s) => s.musicListening);
   const media = useRoomStore((s) => s.media);
   const canControlMedia = useMediaControl();
-  const showMusic = canControlMedia || (media?.videoId ?? null) !== null;
+  const hasMedia = (media?.videoId ?? null) !== null;
+  const showMusic = canControlMedia || hasMedia;
   // An embed that is making sound may not be hidden, so the card stays on
   // screen while the room is playing and this device is listening.
   const musicHeard = media?.status === 'playing' && musicListening;
@@ -86,6 +92,112 @@ export function RoomPage() {
   const inThisRoom = hasRoom && roomCode === code;
   const [consentAsked, setConsentAsked] = useState(false);
   useNow(1_000);
+
+  // The command list, the space bar and the gear all ask the same question, so
+  // it is answered once here rather than three times where it happens to be
+  // needed.
+  const isHost = useRoomStore((s) => s.youUserId === s.hostUserId);
+  const isModerator = useRoomStore(
+    (s) => s.members.find((m) => m.userId === s.youUserId)?.isModerator === true,
+  );
+  const mayControlTimer = canControlTimer(
+    { isHost, isModerator },
+    settings?.timerControl ?? 'host',
+  );
+  const lang = usePrefsStore((s) => s.lang);
+  const toggleLang = usePrefsStore((s) => s.toggleLang);
+  const soundOn = usePrefsStore((s) => s.soundOn);
+  const toggleSound = usePrefsStore((s) => s.toggleSound);
+  const setTheme = usePrefsStore((s) => s.setTheme);
+  const isDark = useIsDark();
+  const navigate = useNavigate();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const togglePalette = useCallback((): void => setPaletteOpen((open) => !open), []);
+  // Read at the moment the key is pressed, so the listener can stay put and the
+  // timer cannot be toggled to whatever status the last render saw.
+  const toggleTimer = useCallback((): void => {
+    const running = useRoomStore.getState().timer?.status === 'running';
+    void actions.timerAction(running ? 'pause' : 'start');
+  }, [actions]);
+
+  useRoomHotkeys({
+    onPalette: togglePalette,
+    onToggleTimer: mayControlTimer ? toggleTimer : null,
+  });
+
+  const commands = buildCommands(t, {
+    inRoom: inThisRoom,
+    canControlTimer: mayControlTimer,
+    isHost,
+    hasMusic: showMusic,
+    hasMedia,
+    canControlMusic: canControlMedia,
+    timerRunning: timer?.status === 'running',
+    musicPlaying: media?.status === 'playing',
+    soundOn,
+    isDark,
+    isEnglish: lang === 'en',
+  });
+
+  const runCommand = (id: CommandId): void => {
+    switch (id) {
+      case 'timer.toggle':
+        toggleTimer();
+        return;
+      case 'timer.reset':
+        void actions.timerAction('reset');
+        return;
+      case 'timer.skip':
+        void actions.timerAction('skip');
+        return;
+      case 'room.copyLink':
+        void copyLink();
+        return;
+      case 'room.settings':
+        setTab('timer');
+        setSettingsOpen(true);
+        return;
+      case 'room.leave':
+        actions.leave();
+        navigate('/');
+        return;
+      case 'tab.timer':
+        setTab('timer');
+        return;
+      case 'tab.members':
+        setTab('members');
+        return;
+      case 'tab.chat':
+        setTab('chat');
+        return;
+      case 'tab.music':
+        setTab('music');
+        return;
+      case 'status.focusing':
+        void actions.updateMember({ status: 'focusing' });
+        return;
+      case 'status.break':
+        void actions.updateMember({ status: 'break' });
+        return;
+      case 'status.away':
+        void actions.updateMember({ status: 'away' });
+        return;
+      case 'view.theme':
+        setTheme(isDark ? 'light' : 'dark');
+        return;
+      case 'view.language':
+        toggleLang();
+        return;
+      case 'view.sound':
+        toggleSound();
+        return;
+      case 'media.toggle':
+        void actions.mediaAction(media?.status === 'playing' ? 'pause' : 'play');
+        return;
+    }
+  };
 
   // A strict-focus room asks once per code, on this device. Declining is a
   // complete answer, so the ask never comes back on the next render.
@@ -302,6 +414,8 @@ export function RoomPage() {
             <TimerCard
               onTimerAction={actions.timerAction}
               onUpdateSettings={actions.updateSettings}
+              settingsOpen={settingsOpen}
+              onSettingsOpenChange={setSettingsOpen}
             />
           </div>
 
@@ -380,6 +494,13 @@ export function RoomPage() {
           </button>
         ))}
       </nav>
+
+      <CommandPalette
+        open={paletteOpen}
+        commands={commands}
+        onClose={() => setPaletteOpen(false)}
+        onRun={runCommand}
+      />
 
       <JoinDialog
         open={Boolean(meta) && !hasRoom && !autoJoinPending}

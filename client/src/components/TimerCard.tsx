@@ -3,6 +3,7 @@ import { getRemainingMs, type RoomSettings } from '@studyroom/shared';
 import { serverNowEstimate } from '../lib/clock';
 import { formatRemaining } from '../lib/format';
 import { nextPhase } from '../lib/nextPhase';
+import { canControlTimer } from '../lib/permissions';
 import { matchPreset } from '../lib/timerPresets';
 import { useNow } from '../hooks/useNow';
 import { usePrefsStore } from '../stores/prefsStore';
@@ -18,9 +19,17 @@ import { TimerRing } from './TimerRing';
 export interface TimerCardProps {
   onTimerAction: (action: TimerAction) => Promise<void>;
   onUpdateSettings: (patch: Partial<RoomSettings>) => Promise<boolean>;
+  /** The gear and the command palette both open this dialog, so the page owns it. */
+  settingsOpen: boolean;
+  onSettingsOpenChange: (open: boolean) => void;
 }
 
-export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
+export function TimerCard({
+  onTimerAction,
+  onUpdateSettings,
+  settingsOpen,
+  onSettingsOpenChange,
+}: TimerCardProps) {
   const t = useT();
   useNow(250);
   const timer = useRoomStore((s) => s.timer);
@@ -31,14 +40,13 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
     (s) => s.members.find((m) => m.userId === s.youUserId)?.isModerator === true,
   );
   const timerStyle = usePrefsStore((s) => s.timerStyle);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
 
   if (!timer || !settings) return null;
 
   const isHost = youUserId === hostUserId;
-  const canControl = isHost || isModerator || settings.timerControl === 'everyone';
+  const canControl = canControlTimer({ isHost, isModerator }, settings.timerControl);
   const remainingMs = getRemainingMs(timer, serverNowEstimate());
   const progress =
     timer.phaseDurationMs > 0 ? 1 - remainingMs / timer.phaseDurationMs : 0;
@@ -163,7 +171,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
             variant="ghost"
             aria-label={t('room.settings')}
             title={t('room.settings')}
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => onSettingsOpenChange(true)}
             className="px-2.5"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -197,7 +205,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
         open={settingsOpen}
         settings={settings}
         busy={saving}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => onSettingsOpenChange(false)}
         onSave={save}
       />
     </section>
