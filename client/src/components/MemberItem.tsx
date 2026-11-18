@@ -19,7 +19,7 @@ const AVATAR_COLORS = [
   'bg-accent-soft text-accent-text',
 ] as const;
 
-function avatarColor(userId: string): string {
+export function avatarColor(userId: string): string {
   let hash = 0;
   for (const char of userId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? 'bg-accent-soft text-accent-text';

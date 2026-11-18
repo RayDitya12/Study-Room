@@ -39,6 +39,7 @@ export const en = {
     chatTab: 'Chat',
     timerTab: 'Timer',
     musicTab: 'Music',
+    sections: 'Room sections',
     reconnecting: 'Reconnecting…',
     settings: 'Settings',
   },
@@ -88,8 +89,13 @@ export const en = {
     blockedBan: 'banned',
     unblock: 'Lift block',
     yourStatus: 'Your status',
+    onlineCount: '{count} online',
     taskPlaceholder: 'What are you working on?',
     emptyAlone: "You're alone here. Share the link to invite someone.",
+  },
+  presence: {
+    title: 'Who is here',
+    moreAria: '{count} more',
   },
   confirm: {
     cancel: 'Cancel',
@@ -115,6 +121,7 @@ export const en = {
     placeholder: 'Type a message…',
     send: 'Send',
     newMessages: 'New messages',
+    unreadCount: '{count} new',
     typingOne: '{name} is typing…',
     typingTwo: '{a} and {b} are typing…',
     typingMany: 'Several people are typing…',
@@ -276,6 +283,7 @@ export const en = {
     live: 'Live stream, so there is no position to match.',
     failed: 'The YouTube player could not load. Check your connection and reload.',
     loading: 'Loading the player…',
+    playingNow: 'Music is playing',
   },
   crash: {
     title: 'This page stopped working',

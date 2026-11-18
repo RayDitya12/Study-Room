@@ -41,6 +41,7 @@ export const id: Messages = {
     chatTab: 'Obrolan',
     timerTab: 'Timer',
     musicTab: 'Musik',
+    sections: 'Bagian ruangan',
     reconnecting: 'Menghubungkan ulang…',
     settings: 'Pengaturan',
   },
@@ -90,8 +91,13 @@ export const id: Messages = {
     blockedBan: 'diblokir',
     unblock: 'Cabut blokir',
     yourStatus: 'Statusmu',
+    onlineCount: '{count} aktif',
     taskPlaceholder: 'Sedang mengerjakan apa?',
     emptyAlone: 'Kamu sendirian di sini. Bagikan tautan untuk mengundang orang.',
+  },
+  presence: {
+    title: 'Siapa yang di sini',
+    moreAria: '{count} lainnya',
   },
   confirm: {
     cancel: 'Batal',
@@ -117,6 +123,7 @@ export const id: Messages = {
     placeholder: 'Tulis pesan…',
     send: 'Kirim',
     newMessages: 'Pesan baru',
+    unreadCount: '{count} baru',
     typingOne: '{name} sedang mengetik…',
     typingTwo: '{a} dan {b} sedang mengetik…',
     typingMany: 'Beberapa orang sedang mengetik…',
@@ -278,6 +285,7 @@ export const id: Messages = {
     live: 'Siaran langsung, jadi tidak ada posisi yang bisa disamakan.',
     failed: 'Pemutar YouTube gagal dimuat. Periksa koneksi lalu muat ulang.',
     loading: 'Memuat pemutar…',
+    playingNow: 'Musik sedang diputar',
   },
   crash: {
     title: 'Halaman ini berhenti bekerja',

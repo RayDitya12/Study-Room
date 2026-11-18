@@ -23,6 +23,7 @@ import { JoinDialog } from '../components/JoinDialog';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { MemberList } from '../components/MemberList';
 import { MusicCard, useMediaControl } from '../components/MusicCard';
+import { PresenceStrip } from '../components/PresenceStrip';
 import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 import { SoundToggle } from '../components/SoundToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -61,6 +62,7 @@ export function RoomPage() {
   const roomName = useRoomStore((s) => s.name);
   const timer = useRoomStore((s) => s.timer);
   const messages = useRoomStore((s) => s.messages);
+  const members = useRoomStore((s) => s.members);
   const kicked = useRoomStore((s) => s.kicked);
   const settings = useRoomStore((s) => s.settings);
   const focusTracking = usePrefsStore((s) => s.focusTracking);
@@ -73,6 +75,7 @@ export function RoomPage() {
   // screen while the room is playing and this device is listening.
   const musicHeard = media?.status === 'playing' && musicListening;
   const strictFocus = settings?.strictFocus === true;
+  const onlineCount = members.filter((m) => m.online).length;
   const [consentAsked, setConsentAsked] = useState(false);
   useNow(1_000);
 
@@ -171,41 +174,45 @@ export function RoomPage() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex items-center gap-2 border-b border-surface0 px-3 py-3 sm:gap-3 sm:px-4">
+      <header className="flex items-center gap-2 border-b border-surface0 px-2 py-2 sm:gap-3 sm:px-4">
         <Link
           to="/"
           aria-label={t('common.back')}
-          className="rounded-lg p-1.5 text-muted hover:bg-surface0 hover:text-text"
+          className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-surface0 hover:text-text"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold text-text">{roomName || t('app.title')}</h1>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="shrink-0 font-mono text-xs tracking-widest text-muted">{code}</span>
+          <h1 className="truncate text-sm font-semibold text-text" title={roomName || undefined}>
+            {roomName || t('app.title')}
+          </h1>
+          <div className="flex min-w-0 items-center gap-x-2 text-xs">
+            <span className="shrink-0 font-mono tracking-wider text-muted">{code}</span>
             <button
               type="button"
               onClick={() => void copyLink()}
-              className="shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs text-accent-text hover:bg-surface0"
+              className="shrink-0 whitespace-nowrap rounded-md px-1 py-0.5 text-accent-text hover:bg-surface0"
             >
               {t('room.copyLink')}
             </button>
             {strictFocus ? (
               <span
                 title={t('focus.badgeHint')}
-                className="shrink-0 whitespace-nowrap rounded-full bg-focus-soft px-2 py-0.5 text-xs font-medium text-focus-text"
+                className="min-w-0 truncate rounded-full bg-focus-soft px-2 py-0.5 font-medium text-focus-text"
               >
                 {t('focus.badge')}
               </span>
             ) : null}
           </div>
         </div>
-        <LanguageToggle />
-        <SoundDisplayPopover />
-        <SoundToggle />
-        <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-mantle p-0.5">
+          <LanguageToggle />
+          <SoundDisplayPopover />
+          <SoundToggle />
+          <ThemeToggle />
+        </div>
       </header>
 
       <ConnectionBanner />
@@ -224,6 +231,12 @@ export function RoomPage() {
               onUpdateSettings={actions.updateSettings}
             />
           </div>
+
+          {tab === 'timer' ? (
+            <div className="flex flex-col lg:hidden">
+              <PresenceStrip onUpdate={actions.updateMember} />
+            </div>
+          ) : null}
 
           {showMusic ? (
             <div className={cardPanel(tab === 'music' || musicHeard)}>
@@ -248,33 +261,49 @@ export function RoomPage() {
       </main>
 
       <nav
-        aria-label={t('app.title')}
-        className="grid grid-cols-4 border-t border-surface0 bg-base lg:hidden"
+        aria-label={t('room.sections')}
+        className="grid grid-cols-4 border-t border-surface0 bg-base [padding-bottom:max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
       >
         {(
           [
-            ['timer', t('room.timerTab')],
-            ['members', t('room.membersTab')],
-            ['chat', t('room.chatTab')],
-            ['music', t('room.musicTab')],
-          ] as [Tab, string][]
-        ).map(([value, label]) => (
+            ['timer', t('room.timerTab'), 'M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+            ['members', t('room.membersTab'), 'M16 20v-1a4 4 0 0 0-8 0v1M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 20v-1a3 3 0 0 0-2-2.8M4 20v-1a3 3 0 0 1 2-2.8'],
+            ['chat', t('room.chatTab'), 'M20 15a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z'],
+            ['music', t('room.musicTab'), 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z'],
+          ] as [Tab, string, string][]
+        ).map(([value, label, path]) => (
           <button
             key={value}
             type="button"
             onClick={() => setTab(value)}
             aria-current={tab === value}
-            className={`relative py-3 text-xs font-medium ${
+            className={`flex flex-col items-center gap-1 py-2 text-[11px] font-medium ${
               tab === value ? 'text-accent-text' : 'text-muted'
             }`}
           >
+            <span className="relative">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d={path} />
+              </svg>
+              {value === 'members' && hasRoom ? (
+                <span className="absolute -right-2.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-mauve px-1 text-[10px] font-semibold text-base">
+                  {onlineCount}
+                  <span className="sr-only">{t('members.onlineCount', { count: onlineCount })}</span>
+                </span>
+              ) : null}
+              {value === 'chat' && unread > 0 ? (
+                <span className="absolute -right-2.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-mauve px-1 text-[10px] font-semibold text-base">
+                  {unread > 9 ? '9+' : unread}
+                  <span className="sr-only">{t('chat.unreadCount', { count: unread })}</span>
+                </span>
+              ) : null}
+              {value === 'music' && showMusic && musicHeard && tab !== 'music' ? (
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-teal ring-2 ring-base">
+                  <span className="sr-only">{t('music.playingNow')}</span>
+                </span>
+              ) : null}
+            </span>
             {label}
-            {value === 'chat' && unread > 0 ? (
-              <span className="absolute right-1/4 top-2 h-2 w-2 rounded-full bg-red" />
-            ) : null}
-            {value === 'music' && showMusic && musicHeard && tab !== 'music' ? (
-              <span className="absolute right-1/4 top-2 h-2 w-2 rounded-full bg-teal" />
-            ) : null}
           </button>
         ))}
       </nav>

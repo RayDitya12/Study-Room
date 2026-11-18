@@ -63,7 +63,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   return (
     <section
       aria-label={t('room.timerTab')}
-      className="card flex h-full flex-col items-center justify-center gap-5 rounded-2xl p-6"
+      className="card flex h-full flex-col items-center justify-center gap-4 rounded-2xl p-4 sm:gap-5 sm:p-6"
     >
       {timerStyle === 'minimal' ? (
         <div className="flex w-full max-w-[320px] flex-col items-center gap-3">
@@ -121,11 +121,31 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
         >
           {t(timer.status === 'running' ? 'timer.pause' : 'timer.start')}
         </Button>
-        <Button variant="secondary" onClick={() => void run('reset')} disabled={!canControl || busy}>
-          {t('timer.reset')}
+        <Button
+          variant="secondary"
+          onClick={() => void run('reset')}
+          disabled={!canControl || busy}
+          aria-label={t('timer.reset')}
+          title={t('timer.reset')}
+          className="gap-1.5 px-3 sm:px-4"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3.2-6.9M3 4v5h5" />
+          </svg>
+          <span className="hidden sm:inline">{t('timer.reset')}</span>
         </Button>
-        <Button variant="secondary" onClick={() => void run('skip')} disabled={!canControl || busy}>
-          {t('timer.skip')}
+        <Button
+          variant="secondary"
+          onClick={() => void run('skip')}
+          disabled={!canControl || busy}
+          aria-label={t('timer.skip')}
+          title={t('timer.skip')}
+          className="gap-1.5 px-3 sm:px-4"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 4l10 8-10 8zM19 5v14" />
+          </svg>
+          <span className="hidden sm:inline">{t('timer.skip')}</span>
         </Button>
         {isHost ? (
           <Button
