@@ -160,6 +160,25 @@ export function RoomPage() {
       : null;
   useDocumentTitle(documentTitle);
 
+  // The room at a glance, in one line a wide screen has room for. Everything in
+  // it is also on screen somewhere else (ring, member list, the address bar),
+  // so it stays out of the accessibility tree rather than saying the same
+  // things twice. The room code moves here from the row under the name.
+  const statusLine =
+    inThisRoom && timer && settings
+      ? [
+          `${t(`timer.${timer.phase}`).toUpperCase()} ${formatRemaining(
+            getRemainingMs(timer, serverNowEstimate()),
+          )}`,
+          t('room.statusOnline', { count: onlineCount }),
+          t('room.statusCycle', {
+            current: Math.min(timer.completedFocus + 1, settings.cyclesBeforeLong),
+            total: settings.cyclesBeforeLong,
+          }),
+          code,
+        ].join(' · ')
+      : null;
+
   const copyLink = async (): Promise<void> => {
     const ok = await copyText(`${window.location.origin}/r/${code}`);
     pushToast(t(ok ? 'toasts.linkCopied' : 'toasts.copyFailed'));
@@ -226,7 +245,7 @@ export function RoomPage() {
             {roomName || t('app.title')}
           </h1>
           <div className="flex min-w-0 items-center gap-x-2 text-xs">
-            <span className="shrink-0 font-mono tracking-wider text-muted">{code}</span>
+            <span className="shrink-0 font-mono tracking-wider text-muted lg:hidden">{code}</span>
             <button
               type="button"
               onClick={() => void copyLink()}
@@ -244,6 +263,14 @@ export function RoomPage() {
             ) : null}
           </div>
         </div>
+        {statusLine ? (
+          <p
+            aria-hidden="true"
+            className="hidden shrink-0 font-mono text-xs tracking-wider text-muted lg:block"
+          >
+            {statusLine}
+          </p>
+        ) : null}
         <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-mantle p-0.5">
           <LanguageToggle />
           <SoundDisplayPopover />
