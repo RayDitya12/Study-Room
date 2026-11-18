@@ -50,7 +50,7 @@ export function JoinDialog({ open, roomName, hasPassword, error, busy, onSubmit 
         }}
       >
         <label className="block space-y-1.5">
-          <span className="text-sm text-subtext0">{t('join.nickname')}</span>
+          <span className="text-sm text-muted">{t('join.nickname')}</span>
           <input
             autoFocus
             type="text"
@@ -64,7 +64,7 @@ export function JoinDialog({ open, roomName, hasPassword, error, busy, onSubmit 
 
         {hasPassword ? (
           <label className="block space-y-1.5">
-            <span className="text-sm text-subtext0">{t('join.password')}</span>
+            <span className="text-sm text-muted">{t('join.password')}</span>
             <input
               type="password"
               value={password}
@@ -77,7 +77,7 @@ export function JoinDialog({ open, roomName, hasPassword, error, busy, onSubmit 
         ) : null}
 
         {message ? (
-          <p role="alert" className="text-sm text-red">
+          <p role="alert" className="text-sm text-danger-text">
             {message}
           </p>
         ) : null}

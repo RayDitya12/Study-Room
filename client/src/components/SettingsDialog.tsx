@@ -40,7 +40,7 @@ export interface SettingsDialogProps {
 
 const chip = (selected: boolean): string =>
   `rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-    selected ? 'bg-mauve/20 text-mauve' : 'bg-mantle text-subtext0 hover:text-text'
+    selected ? 'bg-accent-soft text-accent-text' : 'bg-mantle text-muted hover:text-text'
   }`;
 
 export function SettingsDialog({ open, settings, busy, onClose, onSave }: SettingsDialogProps) {
@@ -88,7 +88,7 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
         }}
       >
         <div className="space-y-1.5">
-          <span className="block text-sm text-subtext0">{t('settings.presetGroup')}</span>
+          <span className="block text-sm text-muted">{t('settings.presetGroup')}</span>
           <div className="flex flex-wrap gap-1.5">
             {TIMER_PRESETS.map((preset) => (
               <button
@@ -111,7 +111,7 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map((field) => (
             <label key={field.key} className="block space-y-1.5">
-              <span className="text-sm text-subtext0">{t(field.labelKey)}</span>
+              <span className="text-sm text-muted">{t(field.labelKey)}</span>
               <input
                 type="number"
                 inputMode="numeric"
@@ -126,7 +126,7 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
         </div>
 
         <label className="flex cursor-pointer items-center justify-between gap-3">
-          <span className="text-sm text-subtext0">{t('settings.autoStart')}</span>
+          <span className="text-sm text-muted">{t('settings.autoStart')}</span>
           <input
             type="checkbox"
             role="switch"
@@ -138,8 +138,8 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
 
         <label className="flex cursor-pointer items-center justify-between gap-3">
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm text-subtext0">{t('settings.strictFocus')}</span>
-            <span className="text-xs text-overlay0">{t('settings.strictFocusHint')}</span>
+            <span className="text-sm text-muted">{t('settings.strictFocus')}</span>
+            <span className="text-xs text-muted">{t('settings.strictFocusHint')}</span>
           </span>
           <input
             type="checkbox"
@@ -151,7 +151,7 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
         </label>
 
         <fieldset className="space-y-1.5">
-          <legend className="text-sm text-subtext0">{t('settings.timerControl')}</legend>
+          <legend className="text-sm text-muted">{t('settings.timerControl')}</legend>
           <div className="flex gap-1 rounded-xl bg-mantle p-1">
             {TIMER_CONTROLS.map((control: TimerControl) => (
               <button
@@ -161,8 +161,8 @@ export function SettingsDialog({ open, settings, busy, onClose, onSave }: Settin
                 onClick={() => setDraft((d) => ({ ...d, timerControl: control }))}
                 className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
                   draft.timerControl === control
-                    ? 'bg-mauve/20 text-mauve'
-                    : 'text-subtext0 hover:text-text'
+                    ? 'bg-accent-soft text-accent-text'
+                    : 'text-muted hover:text-text'
                 }`}
               >
                 {t(control === 'host' ? 'settings.controlHost' : 'settings.controlEveryone')}

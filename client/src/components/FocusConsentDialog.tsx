@@ -20,8 +20,8 @@ export function FocusConsentDialog({ open, onEnable, onDecline }: FocusConsentDi
   return (
     <Dialog open title={t('focus.consentTitle')} onClose={onDecline}>
       <div className="space-y-4">
-        <p className="text-sm text-subtext0">{t('focus.consentBody')}</p>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-overlay0">
+        <p className="text-sm text-muted">{t('focus.consentBody')}</p>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
           <li>{t('focus.consentSees')}</li>
           <li>{t('focus.consentNeverSees')}</li>
         </ul>

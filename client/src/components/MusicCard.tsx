@@ -84,7 +84,7 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={`shrink-0 rounded-lg p-2 hover:bg-surface0 ${
-        pressed ? 'bg-surface0 text-mauve' : 'text-subtext0'
+        pressed ? 'bg-surface0 text-accent-text' : 'text-muted'
       }`}
     >
       {children}
@@ -177,12 +177,12 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
   return (
     <section
       aria-label={t('room.musicTab')}
-      className="flex flex-col gap-3 rounded-2xl bg-mantle p-4"
+      className="card flex flex-col gap-3 rounded-2xl p-4"
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-text">{t('room.musicTab')}</h2>
         {hasVideo && !canControl ? (
-          <span className="truncate text-xs text-subtext0">
+          <span className="truncate text-xs text-muted">
             {setByName ? t('music.addedBy', { name: setByName }) : t('music.addedByGone')}
           </span>
         ) : null}
@@ -191,7 +191,7 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
       {canControl ? (
         <form onSubmit={(event) => void submit(event)} className="space-y-1">
           <label className="block space-y-1">
-            <span className="text-xs text-subtext0">{t('music.addLabel')}</span>
+            <span className="text-xs text-muted">{t('music.addLabel')}</span>
             <div className="flex gap-2">
               <input
                 type="url"
@@ -203,19 +203,19 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
                 maxLength={MEDIA.URL_MAX}
                 placeholder={t('music.addPlaceholder')}
                 aria-invalid={urlError !== null}
-                className="min-w-0 flex-1 rounded-xl border border-surface1 bg-base px-3 py-2 text-sm text-text placeholder:text-overlay0 focus:border-mauve focus:outline-none"
+                className="min-w-0 flex-1 rounded-xl border border-surface1 bg-base px-3 py-2 text-sm text-text placeholder:text-muted focus:border-mauve focus:outline-none"
               />
               <Button type="submit" disabled={busy || url.trim() === ''} className="shrink-0">
                 {t('music.add')}
               </Button>
             </div>
           </label>
-          {urlError ? <p className="text-xs text-red">{urlError}</p> : null}
+          {urlError ? <p className="text-xs text-danger-text">{urlError}</p> : null}
         </form>
       ) : null}
 
       {!hasVideo ? (
-        canControl ? <p className="text-xs text-subtext0">{t('music.empty')}</p> : null
+        canControl ? <p className="text-xs text-muted">{t('music.empty')}</p> : null
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           {/* The record is the player rather than a picture beside it: the embed
@@ -245,7 +245,7 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
           </div>
 
           <div className="min-w-0 flex-1 space-y-3">
-            <p className="truncate text-sm text-subtext1" title={title ?? undefined}>
+            <p className="truncate text-sm text-muted" title={title ?? undefined}>
               {title || t('music.noTitle')}
             </p>
 
@@ -267,7 +267,7 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
                   aria-label={positionLabel}
                   className="w-full accent-mauve disabled:opacity-50"
                 />
-                <p className="text-right font-mono text-xs tabular-nums text-subtext0">
+                <p className="text-right font-mono text-xs tabular-nums text-muted">
                   {positionLabel}
                 </p>
               </div>
@@ -330,18 +330,18 @@ export function MusicCard({ onSetMedia, onMediaAction, onSeek, onSetLoop }: Musi
                   aria-label={t('music.volume')}
                   className="w-full accent-mauve"
                 />
-                <span className="w-7 shrink-0 text-right font-mono text-xs tabular-nums text-subtext0">
+                <span className="w-7 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
                   {musicVolume}
                 </span>
               </div>
             </div>
 
-            {blocked ? <p className="text-xs text-subtext0">{t('music.joinPrompt')}</p> : null}
-            {ended ? <p className="text-xs text-subtext0">{t('music.ended')}</p> : null}
-            {isLive ? <p className="text-xs text-subtext0">{t('music.live')}</p> : null}
-            {unplayable ? <p className="text-xs text-red">{t('music.unplayable')}</p> : null}
-            {!ready && !failed ? <p className="text-xs text-subtext0">{t('music.loading')}</p> : null}
-            {failed ? <p className="text-xs text-red">{t('music.failed')}</p> : null}
+            {blocked ? <p className="text-xs text-muted">{t('music.joinPrompt')}</p> : null}
+            {ended ? <p className="text-xs text-muted">{t('music.ended')}</p> : null}
+            {isLive ? <p className="text-xs text-muted">{t('music.live')}</p> : null}
+            {unplayable ? <p className="text-xs text-danger-text">{t('music.unplayable')}</p> : null}
+            {!ready && !failed ? <p className="text-xs text-muted">{t('music.loading')}</p> : null}
+            {failed ? <p className="text-xs text-danger-text">{t('music.failed')}</p> : null}
           </div>
         </div>
       )}

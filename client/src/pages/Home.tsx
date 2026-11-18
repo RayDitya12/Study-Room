@@ -11,7 +11,7 @@ import { SoundToggle } from '../components/SoundToggle';
 import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 
 const inputClass =
-  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none';
+  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-muted focus:border-mauve focus:outline-none';
 
 export function Home() {
   const t = useT();
@@ -33,7 +33,7 @@ export function Home() {
     <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-4">
       <header className="flex items-center justify-between py-4">
         <h1 className="text-lg font-semibold tracking-tight">
-          <span className="text-mauve">●</span> {t('app.title')}
+          <span className="text-accent-text">●</span> {t('app.title')}
         </h1>
         <div className="flex items-center gap-1">
           <LanguageToggle />
@@ -48,16 +48,16 @@ export function Home() {
           <h2 className="text-3xl font-bold tracking-tight text-text">{t('app.tagline')}</h2>
         </div>
         <div className="grid w-full gap-6 md:grid-cols-2">
-          <section className="rounded-2xl border border-surface1 bg-mantle p-6">
+          <section className="card rounded-2xl p-6">
             <h3 className="text-[1rem] font-semibold text-text">{t('home.createTitle')}</h3>
-            <p className="mb-4 mt-1 text-sm text-subtext0">{t('home.createDescription')}</p>
+            <p className="mb-4 mt-1 text-sm text-muted">{t('home.createDescription')}</p>
             <CreateRoomForm />
           </section>
-          <section className="rounded-2xl border border-surface1 bg-mantle p-6">
+          <section className="card rounded-2xl p-6">
             <h3 className="text-[1rem] font-semibold text-text">{t('home.joinTitle')}</h3>
-            <p className="mb-4 mt-1 text-sm text-subtext0">{t('home.joinDescription')}</p>
+            <p className="mb-4 mt-1 text-sm text-muted">{t('home.joinDescription')}</p>
             <form onSubmit={onJoin} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm text-subtext0">
+              <label className="flex flex-col gap-1 text-sm text-muted">
                 {t('home.code')}
                 <input
                   className={`${inputClass} font-mono uppercase tracking-[0.3em]`}
@@ -72,7 +72,7 @@ export function Home() {
                   required
                 />
               </label>
-              {joinError && <p className="text-sm text-red" role="alert">{joinError}</p>}
+              {joinError && <p className="text-sm text-danger-text" role="alert">{joinError}</p>}
               <Button type="submit" variant="secondary">
                 {t('home.join')}
               </Button>

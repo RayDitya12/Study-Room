@@ -28,10 +28,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     const t = makeTranslator(usePrefsStore.getState().lang);
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col justify-center gap-4 px-4 py-10">
-        <h1 className="text-lg font-semibold text-red">{t('crash.title')}</h1>
-        <p className="text-sm text-subtext0">{t('crash.body')}</p>
+        <h1 className="text-lg font-semibold text-danger-text">{t('crash.title')}</h1>
+        <p className="text-sm text-muted">{t('crash.body')}</p>
         <p className="text-sm font-semibold text-text">{error.message}</p>
-        <pre className="max-h-64 overflow-auto overscroll-contain rounded-xl bg-mantle p-3 text-xs text-subtext0">
+        <pre className="max-h-64 overflow-auto overscroll-contain rounded-xl bg-mantle p-3 text-xs text-muted">
           {error.stack ?? String(error)}
         </pre>
         <div className="flex flex-wrap gap-2">

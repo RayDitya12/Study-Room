@@ -53,14 +53,14 @@ export function FocusSummaryDialog() {
       onClose={() => useRoomStore.getState().focusSummaryReceived(null)}
     >
       <div className="space-y-4">
-        <p className="text-xs text-subtext0">{t(`focus.ended.${event.endedBy}`)}</p>
+        <p className="text-xs text-muted">{t(`focus.ended.${event.endedBy}`)}</p>
 
         {mine ? (
           <div className="rounded-2xl bg-mantle px-4 py-3">
             <p className="text-2xl font-semibold tabular-nums text-text">
               {t('focus.yourResult', { pct: mine.focusPct })}
             </p>
-            <p className="mt-1 text-sm text-subtext0">
+            <p className="mt-1 text-sm text-muted">
               {t('focus.leftTab', {
                 count: mine.awayCount,
                 time: formatRemaining(mine.awayMs),
@@ -68,26 +68,26 @@ export function FocusSummaryDialog() {
             </p>
           </div>
         ) : (
-          <p className="rounded-2xl bg-mantle px-4 py-3 text-sm text-subtext0">
+          <p className="rounded-2xl bg-mantle px-4 py-3 text-sm text-muted">
             {t('focus.youWereNotTracked')}
           </p>
         )}
 
         {history.length > 0 ? (
           <div className="space-y-1.5">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-overlay0">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-muted">
               {t('focus.historyTitle')}
             </h3>
             <ul className="space-y-1">
               {history.slice(0, FOCUS_HISTORY_SHOWN).map((entry) => (
                 <li key={entry.at} className="flex items-center gap-2 text-sm">
-                  <span className="w-12 shrink-0 tabular-nums text-mauve">
+                  <span className="w-12 shrink-0 tabular-nums text-accent-text">
                     {t('focus.pctShort', { pct: entry.focusPct })}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-overlay0">
+                  <span className="shrink-0 font-mono text-xs text-muted">
                     {formatClockTime(entry.at, lang)}
                   </span>
-                  <span className="flex-1 truncate text-right text-subtext0 tabular-nums">
+                  <span className="flex-1 truncate text-right text-muted tabular-nums">
                     {t('focus.historyLine', {
                       count: entry.awayCount,
                       time: formatRemaining(entry.activeMs),
@@ -100,11 +100,11 @@ export function FocusSummaryDialog() {
         ) : null}
 
         <div className="space-y-1.5">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-overlay0">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted">
             {t('focus.membersTitle')}
           </h3>
           {others.length === 0 ? (
-            <p className="text-sm text-subtext0">{t('focus.membersEmpty')}</p>
+            <p className="text-sm text-muted">{t('focus.membersEmpty')}</p>
           ) : (
             <ul className="max-h-52 space-y-1 overflow-y-auto">
               {others.map((summary) => (
@@ -112,10 +112,10 @@ export function FocusSummaryDialog() {
                   <span className="w-10 shrink-0 tabular-nums text-text">
                     {t('focus.pctShort', { pct: summary.focusPct })}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-subtext0" title={summary.nickname}>
+                  <span className="min-w-0 flex-1 truncate text-muted" title={summary.nickname}>
                     {summary.nickname}
                   </span>
-                  <span className="shrink-0 tabular-nums text-overlay0">
+                  <span className="shrink-0 tabular-nums text-muted">
                     {t('focus.awayTimes', {
                       count: summary.awayCount,
                       time: formatRemaining(summary.awayMs),
@@ -127,7 +127,7 @@ export function FocusSummaryDialog() {
           )}
         </div>
 
-        <p className="text-xs text-overlay0">{t('focus.privacyNote')}</p>
+        <p className="text-xs text-muted">{t('focus.privacyNote')}</p>
 
         <div className="flex justify-end">
           <Button

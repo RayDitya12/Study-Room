@@ -5,11 +5,11 @@ import { usePrefsStore } from '../stores/prefsStore';
 import { useRoomStore } from '../stores/roomStore';
 import { useT } from '../i18n/useT';
 
-/** Host names are gold, moderators silver, everyone else the accent colour. */
+/** Host names are amber, moderators plain text, everyone else the accent colour. */
 export function nameColor(member: Member | undefined): string {
-  if (member?.isHost) return 'text-yellow';
-  if (member?.isModerator) return 'text-subtext1';
-  return 'text-mauve';
+  if (member?.isHost) return 'text-warning-text';
+  if (member?.isModerator) return 'text-text';
+  return 'text-accent-text';
 }
 
 export interface MessageItemProps {
@@ -28,7 +28,7 @@ export function MessageItem({ item, youUserId }: MessageItemProps) {
       ? { ...item.params, phase: t(`timer.${item.phase}`) }
       : item.params;
     return (
-      <p className="py-1 text-center text-xs text-subtext0">{t(item.key, params)}</p>
+      <p className="py-1 text-center text-xs text-muted">{t(item.key, params)}</p>
     );
   }
 
@@ -47,7 +47,7 @@ export function MessageItem({ item, youUserId }: MessageItemProps) {
       </div>
       <time
         dateTime={new Date(item.message.createdAt).toISOString()}
-        className="mt-0.5 px-1 text-[10px] text-overlay0"
+        className="mt-0.5 px-1 text-[10px] text-muted"
       >
         {formatClockTime(item.message.createdAt, lang)}
       </time>

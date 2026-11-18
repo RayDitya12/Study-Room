@@ -2,9 +2,9 @@ import { STATUSES, type MemberStatus } from '@studyroom/shared';
 import { useT } from '../i18n/useT';
 
 const ACTIVE: Record<MemberStatus, string> = {
-  focusing: 'bg-green/20 text-green',
-  break: 'bg-blue/20 text-blue',
-  away: 'bg-surface1 text-subtext0',
+  focusing: 'bg-success-soft text-success-text',
+  break: 'bg-info-soft text-info-text',
+  away: 'bg-surface0 text-text',
 };
 
 export interface StatusPickerProps {
@@ -27,7 +27,7 @@ export function StatusPicker({ value, onChange }: StatusPickerProps) {
           aria-pressed={value === status}
           onClick={() => onChange(status)}
           className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-            value === status ? ACTIVE[status] : 'text-subtext0 hover:text-text'
+            value === status ? ACTIVE[status] : 'text-muted hover:text-text'
           }`}
         >
           {t(`members.${status}`)}

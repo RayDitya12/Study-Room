@@ -12,7 +12,7 @@ export function LanguageToggle() {
       onClick={toggleLang}
       title={t('language.label')}
       aria-label={t('language.label')}
-      className="rounded-lg px-2 py-1.5 text-xs font-semibold text-subtext0 hover:bg-surface0 hover:text-text"
+      className="rounded-lg px-2 py-1.5 text-xs font-semibold text-muted hover:bg-surface0 hover:text-text"
     >
       {lang === 'en' ? 'EN' : 'ID'}
     </button>

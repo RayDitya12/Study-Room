@@ -55,7 +55,7 @@ function Row({ label, d, danger = false, onClick }: RowProps) {
       role="menuitem"
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-surface0 ${
-        danger ? 'text-red' : 'text-text'
+        danger ? 'text-danger-text' : 'text-text'
       }`}
     >
       <Glyph d={d} />
@@ -161,7 +161,7 @@ export function MemberMenu({
         aria-label={t('members.actions')}
         title={t('members.actions')}
         className={`shrink-0 rounded-lg p-1.5 transition-colors hover:bg-surface0 hover:text-text ${
-          pos ? 'bg-surface0 text-text' : 'text-subtext0'
+          pos ? 'bg-surface0 text-text' : 'text-muted'
         }`}
       >
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

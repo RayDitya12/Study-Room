@@ -19,13 +19,13 @@ const member = (over: Partial<Member> = {}): Member => ({
 
 describe('chat name colors', () => {
   it('host outranks moderator, plain members keep the accent colour', () => {
-    expect(nameColor(member({ isHost: true }))).toBe('text-yellow');
-    expect(nameColor(member({ isHost: true, isModerator: true }))).toBe('text-yellow');
-    expect(nameColor(member({ isModerator: true }))).toBe('text-subtext1');
-    expect(nameColor(member())).toBe('text-mauve');
+    expect(nameColor(member({ isHost: true }))).toBe('text-warning-text');
+    expect(nameColor(member({ isHost: true, isModerator: true }))).toBe('text-warning-text');
+    expect(nameColor(member({ isModerator: true }))).toBe('text-text');
+    expect(nameColor(member())).toBe('text-accent-text');
   });
 
   it('falls back to the accent colour for senders who already left', () => {
-    expect(nameColor(undefined)).toBe('text-mauve');
+    expect(nameColor(undefined)).toBe('text-accent-text');
   });
 });

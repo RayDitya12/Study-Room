@@ -15,7 +15,7 @@ export function TypingIndicator() {
     .map(([userId]) => members.find((m) => m.userId === userId)?.nickname)
     .filter((name): name is string => Boolean(name));
 
-  if (names.length === 0) return <p aria-live="polite" className="h-4 text-xs text-subtext0" />;
+  if (names.length === 0) return <p aria-live="polite" className="h-4 text-xs text-muted" />;
 
   const text =
     names.length === 1
@@ -25,7 +25,7 @@ export function TypingIndicator() {
         : t('chat.typingMany');
 
   return (
-    <p aria-live="polite" className="h-4 text-xs text-subtext0">
+    <p aria-live="polite" className="h-4 text-xs text-muted">
       {text}
     </p>
   );
