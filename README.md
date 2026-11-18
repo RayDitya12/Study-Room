@@ -283,8 +283,9 @@ hand in two tabs.
   an ordinary visit from your browser (the frame is served from `youtube-nocookie.com`, which reduces
   but does not eliminate that), and nothing about playback is reported back to this app's server.
 - **What never leaves your device.** Theme, language, timer style, chime voice and volume, ambient
-  noise choice and volume, music volume and the listen switch, focus opt-in, and the last ten focus
-  sessions — all in `localStorage`.
+  noise choice and volume, music volume and the listen switch, focus opt-in, the last ten focus
+  sessions, and the five rooms you joined most recently (code, name, and the day you used it, kept so
+  the home page can offer them back) — all in `localStorage`.
 
 ## Windows / PowerShell notes
 
