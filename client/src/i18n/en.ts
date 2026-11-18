@@ -51,6 +51,8 @@ export const en = {
     reset: 'Reset',
     skip: 'Skip',
     hostOnly: 'Only the host and moderators can control the timer',
+    paused: 'Paused',
+    cycle: 'Cycle {current} of {total}',
     summary: '{name} · {focus} / {break} / {long} min · {cycles} cycles',
     settings: 'Timer settings',
     preset: {
@@ -87,6 +89,7 @@ export const en = {
     unblock: 'Lift block',
     yourStatus: 'Your status',
     taskPlaceholder: 'What are you working on?',
+    emptyAlone: "You're alone here. Share the link to invite someone.",
   },
   confirm: {
     cancel: 'Cancel',
@@ -120,6 +123,7 @@ export const en = {
     kicked: '{name} was kicked',
     banned: '{name} was banned',
     mutedHint: 'You are muted — the host has taken away chat.',
+    empty: 'No messages yet. Say hello to the room.',
     hostChanged: '{name} is now the host',
     phaseChanged: 'Phase: {phase}',
     counter: '{count}/500',

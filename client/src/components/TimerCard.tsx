@@ -63,7 +63,7 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
   return (
     <section
       aria-label={t('room.timerTab')}
-      className="flex h-full flex-col items-center justify-center gap-5 rounded-2xl bg-mantle p-6"
+      className="card flex h-full flex-col items-center justify-center gap-5 rounded-2xl p-6"
     >
       {timerStyle === 'minimal' ? (
         <div className="flex w-full max-w-[320px] flex-col items-center gap-3">
@@ -74,13 +74,22 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
           >
             {formatRemaining(remainingMs)}
           </span>
-          <span className="text-sm font-medium text-subtext0">{t(`timer.${timer.phase}`)}</span>
-          <TimerBar phase={timer.phase} progress={progress} />
-          <PhaseDots total={settings.cyclesBeforeLong} completed={timer.completedFocus} />
+          <span className="text-sm font-medium text-muted">{t(`timer.${timer.phase}`)}</span>
+          {timer.status === 'paused' ? (
+            <span className="rounded-full bg-surface0 px-2 py-0.5 text-xs font-medium text-text">
+              {t('timer.paused')}
+            </span>
+          ) : null}
+          <TimerBar phase={timer.phase} status={timer.status} progress={progress} />
+          <PhaseDots
+            total={settings.cyclesBeforeLong}
+            completed={timer.completedFocus}
+            phase={timer.phase}
+          />
         </div>
       ) : (
         <div className="relative mx-auto aspect-square w-full max-w-[240px]">
-          <TimerRing phase={timer.phase} progress={progress} />
+          <TimerRing phase={timer.phase} status={timer.status} progress={progress} />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span
               role="timer"
@@ -89,8 +98,17 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
             >
               {formatRemaining(remainingMs)}
             </span>
-            <span className="text-sm font-medium text-subtext0">{t(`timer.${timer.phase}`)}</span>
-            <PhaseDots total={settings.cyclesBeforeLong} completed={timer.completedFocus} />
+            <span className="text-sm font-medium text-muted">{t(`timer.${timer.phase}`)}</span>
+            {timer.status === 'paused' ? (
+              <span className="rounded-full bg-surface0 px-2 py-0.5 text-xs font-medium text-text">
+                {t('timer.paused')}
+              </span>
+            ) : null}
+            <PhaseDots
+              total={settings.cyclesBeforeLong}
+              completed={timer.completedFocus}
+              phase={timer.phase}
+            />
           </div>
         </div>
       )}
@@ -125,8 +143,8 @@ export function TimerCard({ onTimerAction, onUpdateSettings }: TimerCardProps) {
         ) : null}
       </div>
 
-      {!canControl ? <p className="text-xs text-subtext0">{t('timer.hostOnly')}</p> : null}
-      <p className="text-center text-xs text-overlay0">
+      {!canControl ? <p className="text-xs text-muted">{t('timer.hostOnly')}</p> : null}
+      <p className="text-center text-xs text-muted">
         {t('timer.summary', {
           name: t(`timer.preset.${matchPreset(settings)}`),
           focus: settings.focusMin,

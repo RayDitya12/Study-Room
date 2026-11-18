@@ -53,6 +53,8 @@ export const id: Messages = {
     reset: 'Atur ulang',
     skip: 'Lewati',
     hostOnly: 'Hanya host dan moderator yang bisa mengendalikan timer',
+    paused: 'Dijeda',
+    cycle: 'Siklus {current} dari {total}',
     summary: '{name} · {focus} / {break} / {long} mnt · {cycles} siklus',
     settings: 'Pengaturan timer',
     preset: {
@@ -89,6 +91,7 @@ export const id: Messages = {
     unblock: 'Cabut blokir',
     yourStatus: 'Statusmu',
     taskPlaceholder: 'Sedang mengerjakan apa?',
+    emptyAlone: 'Kamu sendirian di sini. Bagikan tautan untuk mengundang orang.',
   },
   confirm: {
     cancel: 'Batal',
@@ -122,6 +125,7 @@ export const id: Messages = {
     kicked: '{name} dikeluarkan',
     banned: '{name} diblokir',
     mutedHint: 'Kamu dibisukan — chat kamu dicabut oleh host.',
+    empty: 'Belum ada pesan. Sapalah ruangan ini.',
     hostChanged: '{name} sekarang menjadi host',
     phaseChanged: 'Fase: {phase}',
     counter: '{count}/500',
