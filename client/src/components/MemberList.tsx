@@ -4,6 +4,7 @@ import { useRoomStore } from '../stores/roomStore';
 import { useT } from '../i18n/useT';
 import type { RoomActions } from '../hooks/useRoomConnection';
 import { BlockedDialog } from './BlockedDialog';
+import { Button } from './Button';
 import { ConfirmDialog, type ConfirmRequest } from './ConfirmDialog';
 import { MemberItem } from './MemberItem';
 import { StatusPicker } from './StatusPicker';
@@ -20,9 +21,10 @@ export function sortMembers(members: Member[]): Member[] {
 
 export interface MemberListProps {
   actions: RoomActions;
+  onCopyLink: () => void;
 }
 
-export function MemberList({ actions }: MemberListProps) {
+export function MemberList({ actions, onCopyLink }: MemberListProps) {
   const t = useT();
   const members = useRoomStore((s) => s.members);
   const youUserId = useRoomStore((s) => s.youUserId);
@@ -34,6 +36,8 @@ export function MemberList({ actions }: MemberListProps) {
   const you = members.find((m) => m.userId === youUserId);
   const isHost = youUserId !== '' && youUserId === hostUserId;
   const sorted = sortMembers(members);
+  const onlineCount = members.filter((m) => m.online).length;
+  const alone = onlineCount <= 1;
   const kickMinutes = Math.round(KICK_COOLDOWN_MS / 60_000);
 
   const nameOf = (userId: string): string =>
@@ -100,18 +104,21 @@ export function MemberList({ actions }: MemberListProps) {
   };
 
   return (
-    <section aria-label={t('members.title')} className="flex h-full min-h-0 flex-col gap-3">
+    <section
+      aria-label={t('members.title')}
+      className="card flex h-full min-h-0 flex-col gap-3 rounded-2xl p-3"
+    >
       <header className="flex items-center justify-between gap-2 px-2">
-        <h2 className="text-sm font-semibold text-text">{t('members.title')}</h2>
+        <h2 className="text-[1rem] font-semibold text-text">{t('members.title')}</h2>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-subtext0">
-            {members.filter((m) => m.online).length}/{members.length}
+          <span className="text-xs text-muted">
+            {onlineCount}/{members.length}
           </span>
           {isHost ? (
             <button
               type="button"
               onClick={() => void openBlocked()}
-              className="rounded-md px-1.5 py-0.5 text-xs text-mauve hover:bg-surface0"
+              className="rounded-md px-1.5 py-0.5 text-xs text-accent-text hover:bg-surface0"
             >
               {t('members.blocked')}
             </button>
@@ -119,21 +126,45 @@ export function MemberList({ actions }: MemberListProps) {
         </div>
       </header>
 
-      <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
-        {sorted.map((member) => (
-          <MemberItem
-            key={member.userId}
-            member={member}
-            isYou={member.userId === youUserId}
-            canManage={isHost}
-            onMakeHost={askHost}
-            onSetModerator={askModerator}
-            onSetMuted={(userId, isMuted) => void actions.setMuted(userId, isMuted)}
-            onKick={askKick}
-            onBan={askBan}
-          />
-        ))}
-      </ul>
+      {alone ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
+          <svg
+            aria-hidden="true"
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-muted"
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21a8 8 0 0 1 16 0" />
+          </svg>
+          <p className="max-w-[28ch] text-sm text-muted">{t('members.emptyAlone')}</p>
+          <Button onClick={onCopyLink} className="mt-1">
+            {t('room.copyLink')}
+          </Button>
+        </div>
+      ) : (
+        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+          {sorted.map((member) => (
+            <MemberItem
+              key={member.userId}
+              member={member}
+              isYou={member.userId === youUserId}
+              canManage={isHost}
+              onMakeHost={askHost}
+              onSetModerator={askModerator}
+              onSetMuted={(userId, isMuted) => void actions.setMuted(userId, isMuted)}
+              onKick={askKick}
+              onBan={askBan}
+            />
+          ))}
+        </ul>
+      )}
 
       {you ? (
         <div className="space-y-2 border-t border-surface0 pt-3">

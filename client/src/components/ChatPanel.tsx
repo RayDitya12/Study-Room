@@ -55,18 +55,25 @@ export function ChatPanel({ onSend, onTyping }: ChatPanelProps) {
   };
 
   return (
-    <section aria-label={t('room.chatTab')} className="flex h-full min-h-0 flex-col gap-2">
-      <h2 className="px-1 text-sm font-semibold text-text">{t('room.chatTab')}</h2>
+    <section
+      aria-label={t('room.chatTab')}
+      className="card flex h-full min-h-0 flex-col gap-2 rounded-2xl p-3"
+    >
+      <h2 className="px-1 text-[1rem] font-semibold text-text">{t('room.chatTab')}</h2>
 
       <div className="relative min-h-0 flex-1">
         <div
           ref={listRef}
           onScroll={handleScroll}
-          className="h-full space-y-2 overflow-y-auto rounded-2xl bg-mantle p-3"
+          className="h-full space-y-2 overflow-y-auto px-1"
         >
-          {messages.map((item) => (
-            <MessageItem key={item.id} item={item} youUserId={youUserId} />
-          ))}
+          {messages.length === 0 ? (
+            <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
+              {t('chat.empty')}
+            </p>
+          ) : (
+            messages.map((item) => <MessageItem key={item.id} item={item} youUserId={youUserId} />)
+          )}
         </div>
         {showNewPill ? (
           <button
@@ -81,7 +88,7 @@ export function ChatPanel({ onSend, onTyping }: ChatPanelProps) {
 
       <TypingIndicator />
       {isMuted ? (
-        <p className="px-1 text-xs text-red">{t('chat.mutedHint')}</p>
+        <p className="px-1 text-xs text-danger-text">{t('chat.mutedHint')}</p>
       ) : null}
       <ChatInput disabled={!hasRoom || isMuted} onSend={onSend} onTyping={onTyping} />
     </section>
