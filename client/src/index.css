@@ -28,6 +28,26 @@ html[data-theme="mocha"] {
   --ctp-base: #1e1e2e;
   --ctp-mantle: #181825;
   --ctp-crust: #11111b;
+
+  /* Semantic text + chip tokens (see theme/tokens.ts). On Mocha the accents are
+     already light enough to serve as text, so these mirror the official steps. */
+  --app-muted: var(--ctp-subtext1);
+  --app-accent-text: var(--ctp-mauve);
+  --app-success-text: var(--ctp-green);
+  --app-info-text: var(--ctp-blue);
+  --app-warning-text: var(--ctp-yellow);
+  --app-danger-text: var(--ctp-red);
+  --app-focus-text: var(--ctp-teal);
+  --app-accent-soft: #33284a;
+  --app-success-soft: #263a2b;
+  --app-info-soft: #26314a;
+  --app-warning-soft: #3d3726;
+  --app-danger-soft: #3a2531;
+  --app-focus-soft: #223a3a;
+
+  /* Mocha already separates mantle from base, so no border and no shadow. */
+  --card-border: transparent;
+  --card-shadow: none;
 }
 
 /* Catppuccin Latte (light) */
@@ -58,6 +78,27 @@ html[data-theme="latte"] {
   --ctp-base: #eff1f5;
   --ctp-mantle: #e6e9ef;
   --ctp-crust: #dcdfe5;
+
+  /* Latte needs *darker* versions of the accents to use them as text, plus a
+     solid soft background for the coloured chips — the official steps stay
+     untouched above. Values match theme/tokens.ts; contrast.test.ts guards them. */
+  --app-muted: var(--ctp-subtext1);
+  --app-accent-text: #6d2fcf;
+  --app-success-text: #216015;
+  --app-info-text: #184ab8;
+  --app-warning-text: #6f4b00;
+  --app-danger-text: #b30035;
+  --app-focus-text: #085c60;
+  --app-accent-soft: #e3d9f6;
+  --app-success-soft: #d5e8cf;
+  --app-info-soft: #d6e0fb;
+  --app-warning-soft: #f2e4c8;
+  --app-danger-soft: #f6d9e0;
+  --app-focus-soft: #cfe5e6;
+
+  /* Latte mantle on Latte base is ~1.05:1, so cards need an edge and a shadow. */
+  --card-border: var(--ctp-surface1);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 5%);
 }
 
 /* A locally installed JetBrainsMono Nerd Font wins over the bundled webfont,
@@ -88,8 +129,30 @@ html[data-theme="latte"] {
   --color-teal: var(--ctp-teal);
   --color-pink: var(--ctp-pink);
   --color-lavender: var(--ctp-lavender);
+  /* Semantic text and chip tokens: text-muted, bg-success-soft, etc. */
+  --color-muted: var(--app-muted);
+  --color-accent-text: var(--app-accent-text);
+  --color-success-text: var(--app-success-text);
+  --color-info-text: var(--app-info-text);
+  --color-warning-text: var(--app-warning-text);
+  --color-danger-text: var(--app-danger-text);
+  --color-focus-text: var(--app-focus-text);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-success-soft: var(--app-success-soft);
+  --color-info-soft: var(--app-info-soft);
+  --color-warning-soft: var(--app-warning-soft);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-focus-soft: var(--app-focus-soft);
   --font-sans: var(--app-font);
   --font-mono: var(--app-font);
+}
+
+/* One card surface for a whole column: mantle fill, and on Latte only a 1px
+   edge plus a faint shadow so the card is not invisible against the page. */
+.card {
+  background: var(--ctp-mantle);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
 }
 
 body {
