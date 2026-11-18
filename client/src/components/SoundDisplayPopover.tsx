@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALERT_SOUNDS, previewAlert } from '../lib/alertSounds';
 import { focusableWithin } from '../lib/focus';
+import { canAskForPermission, permissionStateOf, type PermissionState } from '../lib/notifications';
 import type { AmbientPref } from '../stores/prefsStore';
 import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
 import { useT } from '../i18n/useT';
 
 const PANEL_WIDTH = 244;
-/** The four groups are taller than any screen, so the panel scrolls inside. */
-const PANEL_HEIGHT = 520;
+/** The five groups are taller than any screen, so the panel scrolls inside. */
+const PANEL_HEIGHT = 600;
 const SMALL_SCREEN = '(max-width: 639.98px)';
 
 const TIMER_STYLES: TimerStylePref[] = ['ring', 'minimal'];
@@ -37,6 +38,38 @@ export function SoundDisplayPopover() {
   const setTimerStyle = usePrefsStore((s) => s.setTimerStyle);
   const focusTracking = usePrefsStore((s) => s.focusTracking);
   const setFocusTracking = usePrefsStore((s) => s.setFocusTracking);
+  const notifyOnPhase = usePrefsStore((s) => s.notifyOnPhase);
+  const setNotifyOnPhase = usePrefsStore((s) => s.setNotifyOnPhase);
+  const [permission, setPermission] = useState<PermissionState>(() =>
+    permissionStateOf(typeof Notification === 'undefined' ? null : Notification),
+  );
+
+  // Asking is the browser's own gesture-gated prompt, so it can only happen in
+  // the middle of this click. The switch follows the answer rather than the
+  // wish: a denied permission is not something this page can turn on.
+  const askNotify = async (want: boolean): Promise<void> => {
+    if (!want) {
+      setNotifyOnPhase(false);
+      return;
+    }
+    let state = permission;
+    if (canAskForPermission(state)) {
+      state = permissionStateOf({ permission: await Notification.requestPermission() });
+      setPermission(state);
+    }
+    setNotifyOnPhase(state === 'granted');
+  };
+
+  // A browser that has already answered will not ask again, so the promise that
+  // it will only appears in the one state where it is true.
+  const notifyNote =
+    permission === 'denied'
+      ? t('display.notifyBlocked')
+      : permission === 'unsupported'
+        ? t('display.notifyUnsupported')
+        : permission === 'ask' && !notifyOnPhase
+          ? t('display.notifyAsk')
+          : null;
 
   useEffect(() => {
     if (!anchor) return;
@@ -204,6 +237,28 @@ export function SoundDisplayPopover() {
                 className="h-5 w-5 accent-mauve"
               />
             </label>
+          </fieldset>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-muted">{t('display.notifyGroup')}</legend>
+            <p className="text-xs text-muted">{t('display.notifyHint')}</p>
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="text-sm text-muted">{t('display.notifySwitch')}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={notifyOnPhase}
+                disabled={permission !== 'granted' && !canAskForPermission(permission)}
+                onChange={(e) => void askNotify(e.currentTarget.checked)}
+                aria-describedby={notifyNote ? 'notify-note' : undefined}
+                className="h-5 w-5 accent-mauve"
+              />
+            </label>
+            {notifyNote ? (
+              <p id="notify-note" className="text-xs text-muted">
+                {notifyNote}
+              </p>
+            ) : null}
           </fieldset>
 
           <fieldset className="space-y-2">

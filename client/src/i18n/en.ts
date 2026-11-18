@@ -267,6 +267,15 @@ export const en = {
     focusGroup: 'Focus tracking',
     focusHint: 'An accountability aid, not enforcement: it can only see this tab.',
     focusSwitch: 'Share when this tab is hidden',
+    notifyGroup: 'Notifications',
+    notifyHint: 'Off until you switch it on, and the room never sees that you have.',
+    notifySwitch: 'Tell me when a phase ends while this tab is hidden',
+    notifyAsk: 'Your browser will ask once, the first time you switch it on.',
+    notifyBlocked: 'This browser is blocking notifications for this site.',
+    notifyUnsupported: 'This browser does not support notifications.',
+  },
+  notify: {
+    started: '{phase} has started',
   },
   focus: {
     badge: 'Focus mode',

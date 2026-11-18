@@ -10,6 +10,7 @@ describe('prefs migration', () => {
     expect(migrated.timerStyle).toBe('ring');
     expect(migrated.focusTracking).toBe(false);
     expect(migrated.musicListening).toBe(true);
+    expect(migrated.notifyOnPhase).toBe(false);
     expect(Object.keys(migrated).sort()).toEqual(Object.keys(PREF_DEFAULTS).sort());
   });
 

@@ -12,6 +12,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useFocusTracking } from '../hooks/useFocusTracking';
 import { useIsDark } from '../hooks/useIsDark';
 import { useNow } from '../hooks/useNow';
+import { usePhaseNotifications } from '../hooks/usePhaseNotifications';
 import { useRoomConnection } from '../hooks/useRoomConnection';
 import { useRoomHotkeys } from '../hooks/useRoomHotkeys';
 import { useServerWake } from '../hooks/useServerWake';
@@ -67,6 +68,7 @@ export function RoomPage() {
   const { waking, healthyAt } = useServerWake();
   useAmbient();
   useFocusTracking(actions);
+  usePhaseNotifications();
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const roomCode = useRoomStore((s) => s.code);
   const roomName = useRoomStore((s) => s.name);

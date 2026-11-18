@@ -269,6 +269,15 @@ export const id: Messages = {
     focusGroup: 'Pelacakan fokus',
     focusHint: 'Alat bantu tanggung jawab, bukan pengawasan: hanya bisa melihat tab ini.',
     focusSwitch: 'Bagikan saat tab ini tersembunyi',
+    notifyGroup: 'Notifikasi',
+    notifyHint: 'Mati sampai kamu menyalakannya, dan ruangan ini tidak pernah tahu.',
+    notifySwitch: 'Kabari saat fase berakhir kalau tab ini tersembunyi',
+    notifyAsk: 'Peramban akan bertanya sekali, waktu kamu menyalakannya pertama kali.',
+    notifyBlocked: 'Peramban ini memblokir notifikasi untuk situs ini.',
+    notifyUnsupported: 'Peramban ini tidak mendukung notifikasi.',
+  },
+  notify: {
+    started: '{phase} telah dimulai',
   },
   focus: {
     badge: 'Mode fokus',

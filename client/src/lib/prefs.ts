@@ -26,6 +26,11 @@ export interface PrefsValues {
   focusTracking: boolean;
   musicVolume: number;
   musicListening: boolean;
+  /**
+   * Whether this device may use a browser notification for a phase change. Off
+   * until asked for, because the browser asks the person, not the app.
+   */
+  notifyOnPhase: boolean;
 }
 
 export const PREF_DEFAULTS: PrefsValues = {
@@ -43,6 +48,7 @@ export const PREF_DEFAULTS: PrefsValues = {
   focusTracking: false,
   musicVolume: 50,
   musicListening: true,
+  notifyOnPhase: false,
 };
 
 export const PREFS_STORAGE_VERSION = 2;
