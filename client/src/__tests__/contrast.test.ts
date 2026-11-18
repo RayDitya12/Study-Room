@@ -14,11 +14,16 @@ const LARGE_OR_UI = 3;
  * 4.5:1 on that chip is the text colour itself, so muted is only ever used on
  * the two card colours. Coloured accents have no such problem and so are held
  * to 4.5:1 everywhere they appear, chips included.
+ *
+ * Backgrounds here are always solid tokens. A translucent fill (`bg-mauve/20`)
+ * is not one: its contrast depends on what shows through, so it cannot be
+ * tested and quietly fails on the lighter flavour.
  */
 const TEXT_PAIRS: [keyof FlavorTokens, keyof FlavorTokens][] = [
   ['text', 'mantle'],
   ['text', 'base'],
   ['text', 'surface0'],
+  ['text', 'accentSoft'],
   ['muted', 'mantle'],
   ['muted', 'base'],
   ['accentText', 'mantle'],

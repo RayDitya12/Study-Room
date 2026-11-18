@@ -37,7 +37,7 @@ export function MessageItem({ item, youUserId }: MessageItemProps) {
     <div className={`flex flex-col ${own ? 'items-end' : 'items-start'}`}>
       <div
         className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-          own ? 'rounded-br-md bg-mauve/20 text-text' : 'rounded-bl-md bg-surface0 text-text'
+          own ? 'rounded-br-md bg-accent-soft text-text' : 'rounded-bl-md bg-surface0 text-text'
         }`}
       >
         {!own ? (
