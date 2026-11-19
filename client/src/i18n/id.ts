@@ -229,7 +229,7 @@ export const id: Messages = {
     dark: 'Gelap',
   },
   language: {
-    label: 'Bahasa',
+    label: 'Bahasa: {lang}',
   },
   sound: {
     on: 'Suara aktif',

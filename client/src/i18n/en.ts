@@ -227,7 +227,7 @@ export const en = {
     dark: 'Dark',
   },
   language: {
-    label: 'Language',
+    label: 'Language: {lang}',
   },
   sound: {
     on: 'Sound on',

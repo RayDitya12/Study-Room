@@ -16,6 +16,12 @@ npm-debug.log*
 
 .vercel
 
+# Playwright test outputs
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # Local build briefs, kept off the public history
 SPEC.md
 SPEC-ADDON.md

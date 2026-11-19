@@ -17,6 +17,7 @@
     "build": "npm run build -w server && npm run build -w client",
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client",
     "test": "npm run test -w shared && npm run test -w server && npm run test -w client",
+    "test:e2e": "playwright test",
     "db:push": "npm run db:push -w server",
     "db:generate": "npm run db:generate -w server"
   },
