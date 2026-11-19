@@ -70,7 +70,7 @@ export function ChatInput({ disabled, onSend, onTyping }: ChatInputProps) {
               void submit();
             }
           }}
-          className="max-h-32 min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text placeholder:text-subtext0 focus:outline-none"
+          className="max-h-32 min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text placeholder:text-muted focus:outline-none"
         />
         <button
           type="button"
@@ -85,7 +85,7 @@ export function ChatInput({ disabled, onSend, onTyping }: ChatInputProps) {
         </button>
       </div>
       {draft.length > COUNTER_FROM ? (
-        <p className="px-2 text-right text-[10px] text-overlay0">
+        <p className="px-2 text-right text-[10px] text-muted">
           {t('chat.counter', { count: draft.length })}
         </p>
       ) : null}

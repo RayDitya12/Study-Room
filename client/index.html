@@ -3,22 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>StudyRoom</title>
+    <title>StudyRoom — Focus together, in real time</title>
+    <meta
+      name="description"
+      content="A shared Pomodoro room: one timer everyone sees, who is here and what they are working on, and a chat you can ignore. Create a room, send the six-character link."
+    />
+    <meta name="theme-color" content="#1e1e2e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!-- The app is rendered by JavaScript, so these are the words a crawler
+         reads before it runs any: English, and true whatever the device prefers.
+         A visitor's own language and theme are applied by the client. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="" />
+    <meta property="og:site_name" content="StudyRoom" />
+    <meta property="og:title" content="StudyRoom — Focus together, in real time" />
+    <meta
+      property="og:description"
+      content="One timer for the whole room, the people in it, and a chat you can ignore. No account, no download."
+    />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1792" />
+    <meta property="og:image:height" content="1024" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="StudyRoom — Focus together, in real time" />
+    <meta
+      name="twitter:description"
+      content="One timer for the whole room, the people in it, and a chat you can ignore. No account, no download."
+    />
+    <meta name="twitter:image" content="/og.png" />
+
     <script>
-      // Set data-theme before first paint to avoid a flash of the wrong theme.
+      // Paint the reader's own theme and language before the first frame, so the
+      // page never flashes the wrong colour scheme or the wrong <html lang>.
       try {
-        var raw = localStorage.getItem('studyroom.prefs');
-        var theme = raw ? JSON.parse(raw).state.theme : 'system';
+        var stored = localStorage.getItem('studyroom.prefs');
+        var prefs = (stored && JSON.parse(stored).state) || {};
+        var theme = prefs.theme || 'system';
         var dark =
           theme === 'dark' ||
-          ((theme === 'system' || !theme) &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches);
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         var flavor = dark ? 'mocha' : 'latte';
         document.documentElement.dataset.theme = flavor;
         document.documentElement.style.colorScheme = flavor;
+        document.documentElement.lang = prefs.lang === 'id' ? 'id' : 'en';
+        var accent = document.querySelector('meta[name="theme-color"]');
+        if (accent) accent.setAttribute('content', flavor === 'mocha' ? '#1e1e2e' : '#eff1f5');
       } catch (e) {
         document.documentElement.dataset.theme = 'latte';
       }
+
+      // A shared link is read by something that will never run this app, so the
+      // picture and the address have to be complete URLs by the time it looks.
+      var absolute = function (selector, value) {
+        var tag = document.querySelector(selector);
+        if (tag) tag.setAttribute('content', value);
+      };
+      absolute("meta[property='og:image']", window.location.origin + '/og.png');
+      absolute("meta[name='twitter:image']", window.location.origin + '/og.png');
+      absolute("meta[property='og:url']", window.location.href);
     </script>
   </head>
   <body>

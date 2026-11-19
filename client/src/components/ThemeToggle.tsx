@@ -1,25 +1,12 @@
-import { useEffect, useState } from 'react';
 import { useT } from '../i18n/useT';
 import { usePrefsStore } from '../stores/prefsStore';
-import { DARK_FLAVOR, resolveFlavor } from '../theme/flavors';
+import { useIsDark } from '../hooks/useIsDark';
 
 export function ThemeToggle() {
   const t = useT();
-  const theme = usePrefsStore((s) => s.theme);
   const setTheme = usePrefsStore((s) => s.setTheme);
-  const [prefersDark, setPrefersDark] = useState(
-    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
-  );
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = (event: MediaQueryListEvent) => setPrefersDark(event.matches);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, []);
-
   // 'system' is only the first-run default; the first click pins it to light or dark.
-  const isDark = resolveFlavor(theme, prefersDark) === DARK_FLAVOR;
+  const isDark = useIsDark();
   const label = isDark ? t('theme.dark') : t('theme.light');
 
   return (
@@ -28,7 +15,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       title={`${t('theme.label')}: ${label}`}
       aria-label={`${t('theme.label')}: ${label}`}
-      className="rounded-lg p-2 text-subtext0 hover:bg-surface0 hover:text-text"
+      className="rounded-lg p-2 text-muted hover:bg-surface0 hover:text-text"
     >
       {isDark ? (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

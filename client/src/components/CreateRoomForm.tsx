@@ -7,7 +7,7 @@ import { useT } from '../i18n/useT';
 import { Button } from './Button';
 
 const inputClass =
-  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-subtext0 focus:border-mauve focus:outline-none';
+  'w-full rounded-xl border border-surface1 bg-mantle px-3 py-2 text-sm text-text placeholder:text-muted focus:border-mauve focus:outline-none';
 
 export function CreateRoomForm() {
   const t = useT();
@@ -56,7 +56,7 @@ export function CreateRoomForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-subtext0">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         {t('home.roomName')}
         <input
           className={inputClass}
@@ -67,7 +67,7 @@ export function CreateRoomForm() {
           required
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-subtext0">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         {t('home.password')}
         <input
           className={inputClass}
@@ -79,7 +79,7 @@ export function CreateRoomForm() {
           autoComplete="off"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-subtext0">
+      <label className="flex flex-col gap-1 text-sm text-muted">
         {t('home.nickname')}
         <input
           className={inputClass}
@@ -90,7 +90,7 @@ export function CreateRoomForm() {
           required
         />
       </label>
-      {error && <p className="text-sm text-red" role="alert">{error}</p>}
+      {error && <p className="text-sm text-danger-text" role="alert">{error}</p>}
       <Button type="submit" disabled={submitting}>
         {submitting ? '…' : t('home.create')}
       </Button>

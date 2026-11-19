@@ -12,6 +12,11 @@ export function initTheme(): void {
     const flavor = resolveFlavor(usePrefsStore.getState().theme, media.matches);
     document.documentElement.dataset.theme = flavor;
     document.documentElement.style.colorScheme = flavor;
+    // Read from the palette rather than repeating it: browser chrome follows
+    // the app, and the value cannot drift from the CSS.
+    const base = getComputedStyle(document.documentElement).getPropertyValue('--ctp-base').trim();
+    const accent = document.querySelector('meta[name="theme-color"]');
+    if (accent && base) accent.setAttribute('content', base);
   };
   usePrefsStore.subscribe(apply);
   media.addEventListener('change', apply);

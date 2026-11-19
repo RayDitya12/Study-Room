@@ -4,30 +4,25 @@ import { formatSpent } from '../lib/format';
 import { useNow } from '../hooks/useNow';
 import { useRoomStore } from '../stores/roomStore';
 import { MemberMenu } from './MemberMenu';
+import { StatusDot } from './StatusDot';
 import { useT } from '../i18n/useT';
 
 const AVATAR_COLORS = [
-  'bg-mauve/20 text-mauve',
-  'bg-blue/20 text-blue',
-  'bg-green/20 text-green',
-  'bg-peach/20 text-peach',
-  'bg-pink/20 text-pink',
-  'bg-teal/20 text-teal',
-  'bg-yellow/20 text-yellow',
-  'bg-red/20 text-red',
-  'bg-lavender/20 text-lavender',
+  'bg-accent-soft text-accent-text',
+  'bg-info-soft text-info-text',
+  'bg-success-soft text-success-text',
+  'bg-warning-soft text-warning-text',
+  'bg-danger-soft text-danger-text',
+  'bg-focus-soft text-focus-text',
+  'bg-warning-soft text-warning-text',
+  'bg-danger-soft text-danger-text',
+  'bg-accent-soft text-accent-text',
 ] as const;
 
-const STATUS_DOT: Record<Member['status'], string> = {
-  focusing: 'bg-green',
-  break: 'bg-blue',
-  away: 'bg-overlay0',
-};
-
-function avatarColor(userId: string): string {
+export function avatarColor(userId: string): string {
   let hash = 0;
   for (const char of userId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? 'bg-mauve/20 text-mauve';
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? 'bg-accent-soft text-accent-text';
 }
 
 /**
@@ -50,7 +45,7 @@ function OwnFocusLine({ focus }: { focus: MemberFocus }) {
   const t = useT();
   const ongoing = focus.awaySince === null ? 0 : Math.max(0, serverNowEstimate() - focus.awaySince);
   return (
-    <p className="text-xs text-subtext0 tabular-nums">
+    <p className="text-xs text-muted tabular-nums">
       {t('focus.leftTab', { count: focus.awayCount, time: formatSpent(focus.awayMs + ongoing) })}
     </p>
   );
@@ -104,13 +99,9 @@ export function MemberItem({
         >
           {member.nickname.slice(0, 1).toUpperCase()}
         </div>
-        <span
-          aria-hidden="true"
-          title={t(`members.${member.status}`)}
-          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-base ${
-            STATUS_DOT[member.status]
-          }`}
-        />
+        <span className="absolute -bottom-1 -right-1">
+          <StatusDot status={member.status} />
+        </span>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -122,7 +113,7 @@ export function MemberItem({
               height="13"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className="shrink-0 text-yellow"
+              className="shrink-0 text-warning-text"
             >
               <path d="M3 8l4.5 3L12 4l4.5 7L21 8l-1.8 9H4.8L3 8zm2.6 11h12.8v1.6H5.6V19z" />
             </svg>
@@ -134,7 +125,7 @@ export function MemberItem({
               height="13"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className="shrink-0 text-subtext1"
+              className="shrink-0 text-muted"
             >
               <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" />
             </svg>
@@ -150,7 +141,7 @@ export function MemberItem({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0 text-red"
+              className="shrink-0 text-danger-text"
             >
               <path d="M15 9.3V6a3 3 0 00-5.9-.6M9 9.5V11a3 3 0 004.6 2.5M12 18a3 3 0 003-3M5 5l14 14" />
             </svg>
@@ -166,7 +157,7 @@ export function MemberItem({
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0 text-teal"
+              className="shrink-0 text-focus-text"
             >
               <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
               <circle cx="12" cy="12" r="2.6" />
@@ -175,28 +166,28 @@ export function MemberItem({
           <span className="truncate text-sm font-medium text-text" title={member.nickname}>
             {member.nickname}
           </span>
-          {isYou ? <span className="shrink-0 text-xs text-subtext0">{t('members.you')}</span> : null}
+          {isYou ? <span className="shrink-0 text-xs text-muted">{t('members.you')}</span> : null}
         </div>
         {member.online ? (
-          <div className="flex items-center gap-1.5 text-xs text-subtext0">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
             <span className="shrink-0">{t(`members.${member.status}`)}</span>
             {member.task ? (
               <>
-                <span aria-hidden="true" className="text-overlay0">
+                <span aria-hidden="true" className="text-muted">
                   ·
                 </span>
-                <span className="truncate text-overlay1" title={member.task}>
+                <span className="truncate text-muted" title={member.task}>
                   {member.task}
                 </span>
               </>
             ) : null}
           </div>
         ) : (
-          <p className="text-xs text-subtext0">{t('members.offline')}</p>
+          <p className="text-xs text-muted">{t('members.offline')}</p>
         )}
 
         {showAway ? (
-          <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-yellow/15 px-2 py-0.5 text-xs font-medium text-yellow">
+          <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning-text">
             <AwayClock since={focus.awaySince ?? 0} />
           </p>
         ) : null}
@@ -204,7 +195,7 @@ export function MemberItem({
         {/* Under a strict-focus host, being untracked is a fact about the seat,
             not a judgement: nobody is blocked or excluded for it. */}
         {!showAway && member.online && strictFocus && !focus.tracking ? (
-          <p className="mt-1 text-xs text-overlay0">{t('focus.notTracking')}</p>
+          <p className="mt-1 text-xs text-muted">{t('focus.notTracking')}</p>
         ) : null}
 
         {isYou && focus.tracking ? <OwnFocusLine focus={focus} /> : null}

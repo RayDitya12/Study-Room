@@ -10,7 +10,7 @@ const styles: Record<Variant, string> = {
   primary: 'bg-mauve text-base font-medium hover:brightness-110 active:brightness-95',
   secondary:
     'bg-surface0 text-text border border-surface1 hover:bg-surface1 active:bg-surface0',
-  ghost: 'text-subtext0 hover:bg-surface0 hover:text-text',
+  ghost: 'text-muted hover:bg-surface0 hover:text-text',
   danger: 'bg-red text-base font-medium hover:brightness-110 active:brightness-95',
 };
 

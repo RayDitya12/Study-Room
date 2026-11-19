@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALERT_SOUNDS, previewAlert } from '../lib/alertSounds';
 import { focusableWithin } from '../lib/focus';
+import { canAskForPermission, permissionStateOf, type PermissionState } from '../lib/notifications';
 import type { AmbientPref } from '../stores/prefsStore';
 import { usePrefsStore, type TimerStylePref } from '../stores/prefsStore';
 import { useT } from '../i18n/useT';
 
 const PANEL_WIDTH = 244;
-/** The four groups are taller than any screen, so the panel scrolls inside. */
-const PANEL_HEIGHT = 520;
+/** The five groups are taller than any screen, so the panel scrolls inside. */
+const PANEL_HEIGHT = 600;
 const SMALL_SCREEN = '(max-width: 639.98px)';
 
 const TIMER_STYLES: TimerStylePref[] = ['ring', 'minimal'];
@@ -37,6 +38,38 @@ export function SoundDisplayPopover() {
   const setTimerStyle = usePrefsStore((s) => s.setTimerStyle);
   const focusTracking = usePrefsStore((s) => s.focusTracking);
   const setFocusTracking = usePrefsStore((s) => s.setFocusTracking);
+  const notifyOnPhase = usePrefsStore((s) => s.notifyOnPhase);
+  const setNotifyOnPhase = usePrefsStore((s) => s.setNotifyOnPhase);
+  const [permission, setPermission] = useState<PermissionState>(() =>
+    permissionStateOf(typeof Notification === 'undefined' ? null : Notification),
+  );
+
+  // Asking is the browser's own gesture-gated prompt, so it can only happen in
+  // the middle of this click. The switch follows the answer rather than the
+  // wish: a denied permission is not something this page can turn on.
+  const askNotify = async (want: boolean): Promise<void> => {
+    if (!want) {
+      setNotifyOnPhase(false);
+      return;
+    }
+    let state = permission;
+    if (canAskForPermission(state)) {
+      state = permissionStateOf({ permission: await Notification.requestPermission() });
+      setPermission(state);
+    }
+    setNotifyOnPhase(state === 'granted');
+  };
+
+  // A browser that has already answered will not ask again, so the promise that
+  // it will only appears in the one state where it is true.
+  const notifyNote =
+    permission === 'denied'
+      ? t('display.notifyBlocked')
+      : permission === 'unsupported'
+        ? t('display.notifyUnsupported')
+        : permission === 'ask' && !notifyOnPhase
+          ? t('display.notifyAsk')
+          : null;
 
   useEffect(() => {
     if (!anchor) return;
@@ -110,14 +143,22 @@ export function SoundDisplayPopover() {
         aria-expanded={open}
         title={t('display.title')}
         aria-label={t('display.title')}
-        className={`rounded-lg p-2 transition-colors hover:bg-surface0 hover:text-text ${
-          ambientType !== 'off' ? 'text-mauve' : 'text-subtext0'
+        className={`flex items-center gap-1.5 rounded-lg p-2 text-sm transition-colors hover:bg-surface0 hover:text-text ${
+          ambientType !== 'off' ? 'text-accent-text' : 'text-muted'
         } ${open ? 'bg-surface0' : ''}`}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 15h8" />
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="21" x2="14" y1="4" y2="4" />
+          <line x1="10" x2="3" y1="4" y2="4" />
+          <line x1="21" x2="12" y1="12" y2="12" />
+          <line x1="8" x2="3" y1="12" y2="12" />
+          <line x1="21" x2="16" y1="20" y2="20" />
+          <line x1="12" x2="3" y1="20" y2="20" />
+          <line x1="14" x2="14" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="10" y2="14" />
+          <line x1="16" x2="16" y1="18" y2="22" />
         </svg>
+        <span className="hidden sm:inline">{t('display.title')}</span>
       </button>
 
       {anchor ? (
@@ -136,8 +177,8 @@ export function SoundDisplayPopover() {
           }`}
         >
           <fieldset className="space-y-2">
-            <legend className="text-sm text-subtext0">{t('display.alerts')}</legend>
-            <p className="text-xs text-subtext0">{t('display.alertHint')}</p>
+            <legend className="text-sm text-muted">{t('display.alerts')}</legend>
+            <p className="text-xs text-muted">{t('display.alertHint')}</p>
             <div className="space-y-0.5">
               {ALERT_SOUNDS.map((sound) => (
                 <div key={sound.id} className="flex items-center gap-1">
@@ -149,7 +190,7 @@ export function SoundDisplayPopover() {
                       onChange={() => pick(sound.id)}
                       className="accent-mauve"
                     />
-                    <span className={alertSound === sound.id ? 'text-text' : 'text-subtext0'}>
+                    <span className={alertSound === sound.id ? 'text-text' : 'text-muted'}>
                       {t(`display.sounds.${sound.id}`)}
                     </span>
                   </label>
@@ -159,7 +200,7 @@ export function SoundDisplayPopover() {
                       onClick={() => previewAlert(sound.id, alertVolume)}
                       title={t('display.preview')}
                       aria-label={`${t('display.preview')} · ${t(`display.sounds.${sound.id}`)}`}
-                      className="shrink-0 rounded-lg p-1.5 text-subtext0 hover:bg-surface0 hover:text-text"
+                      className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-surface0 hover:text-text"
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M8 5v14l11-7z" />
@@ -171,7 +212,7 @@ export function SoundDisplayPopover() {
             </div>
 
             <label className="block space-y-1">
-              <span className="flex items-center justify-between text-sm text-subtext0">
+              <span className="flex items-center justify-between text-sm text-muted">
                 <span>{t('display.alertVolume')}</span>
                 <span className="tabular-nums text-xs text-text">{alertVolume}</span>
               </span>
@@ -187,7 +228,7 @@ export function SoundDisplayPopover() {
             </label>
 
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-sm text-subtext0">{t('display.playAlerts')}</span>
+              <span className="text-sm text-muted">{t('display.playAlerts')}</span>
               <input
                 type="checkbox"
                 role="switch"
@@ -199,8 +240,30 @@ export function SoundDisplayPopover() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm text-subtext0">{t('display.ambient')}</legend>
-            <p className="text-xs text-subtext0">{t('display.ambientHint')}</p>
+            <legend className="text-sm text-muted">{t('display.notifyGroup')}</legend>
+            <p className="text-xs text-muted">{t('display.notifyHint')}</p>
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="text-sm text-muted">{t('display.notifySwitch')}</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={notifyOnPhase}
+                disabled={permission !== 'granted' && !canAskForPermission(permission)}
+                onChange={(e) => void askNotify(e.currentTarget.checked)}
+                aria-describedby={notifyNote ? 'notify-note' : undefined}
+                className="h-5 w-5 accent-mauve"
+              />
+            </label>
+            {notifyNote ? (
+              <p id="notify-note" className="text-xs text-muted">
+                {notifyNote}
+              </p>
+            ) : null}
+          </fieldset>
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-muted">{t('display.ambient')}</legend>
+            <p className="text-xs text-muted">{t('display.ambientHint')}</p>
             <div className="space-y-0.5">
               {AMBIENT_TYPES.map((value) => (
                 <label
@@ -214,7 +277,7 @@ export function SoundDisplayPopover() {
                     onChange={() => setAmbientType(value)}
                     className="accent-mauve"
                   />
-                  <span className={ambientType === value ? 'text-text' : 'text-subtext0'}>
+                  <span className={ambientType === value ? 'text-text' : 'text-muted'}>
                     {t(`display.ambientTypes.${value}`)}
                   </span>
                 </label>
@@ -222,7 +285,7 @@ export function SoundDisplayPopover() {
             </div>
 
             <label className="block space-y-1">
-              <span className="flex items-center justify-between text-sm text-subtext0">
+              <span className="flex items-center justify-between text-sm text-muted">
                 <span>{t('display.ambientVolume')}</span>
                 <span className="tabular-nums text-xs text-text">{ambientVolume}</span>
               </span>
@@ -238,7 +301,7 @@ export function SoundDisplayPopover() {
             </label>
 
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-sm text-subtext0">{t('display.ambientFocusOnly')}</span>
+              <span className="text-sm text-muted">{t('display.ambientFocusOnly')}</span>
               <input
                 type="checkbox"
                 role="switch"
@@ -250,7 +313,7 @@ export function SoundDisplayPopover() {
           </fieldset>
 
           <fieldset className="space-y-1.5">
-            <legend className="text-sm text-subtext0">{t('display.timerStyle')}</legend>
+            <legend className="text-sm text-muted">{t('display.timerStyle')}</legend>
             <div className="flex gap-1 rounded-xl bg-mantle p-1">
               {TIMER_STYLES.map((style) => (
                 <button
@@ -259,7 +322,7 @@ export function SoundDisplayPopover() {
                   aria-pressed={timerStyle === style}
                   onClick={() => setTimerStyle(style)}
                   className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                    timerStyle === style ? 'bg-mauve/20 text-mauve' : 'text-subtext0 hover:text-text'
+                    timerStyle === style ? 'bg-accent-soft text-accent-text' : 'text-muted hover:text-text'
                   }`}
                 >
                   {t(style === 'ring' ? 'display.ring' : 'display.minimal')}
@@ -269,10 +332,10 @@ export function SoundDisplayPopover() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm text-subtext0">{t('display.focusGroup')}</legend>
-            <p className="text-xs text-subtext0">{t('display.focusHint')}</p>
+            <legend className="text-sm text-muted">{t('display.focusGroup')}</legend>
+            <p className="text-xs text-muted">{t('display.focusHint')}</p>
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-sm text-subtext0">{t('display.focusSwitch')}</span>
+              <span className="text-sm text-muted">{t('display.focusSwitch')}</span>
               <input
                 type="checkbox"
                 role="switch"

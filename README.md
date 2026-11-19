@@ -283,8 +283,12 @@ hand in two tabs.
   an ordinary visit from your browser (the frame is served from `youtube-nocookie.com`, which reduces
   but does not eliminate that), and nothing about playback is reported back to this app's server.
 - **What never leaves your device.** Theme, language, timer style, chime voice and volume, ambient
-  noise choice and volume, music volume and the listen switch, focus opt-in, and the last ten focus
-  sessions — all in `localStorage`.
+  noise choice and volume, music volume and the listen switch, focus opt-in, the notification opt-in,
+  the last ten focus sessions, and the five rooms you joined most recently (code, name, and the day you
+  used it, kept so the home page can offer them back) — all in `localStorage`, in the same
+  `studyroom.prefs` object. The notification switch only decides whether *this browser* may say
+  something to you when a phase ends while this tab is hidden; the room is never told about it, and the
+  notice itself is built on the device from the timer state the room already sends you.
 
 ## Windows / PowerShell notes
 

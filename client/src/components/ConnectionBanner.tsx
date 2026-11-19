@@ -9,7 +9,7 @@ export function ConnectionBanner() {
   return (
     <div
       role="status"
-      className="flex items-center justify-center gap-2 bg-red/15 px-4 py-1.5 text-xs font-medium text-red"
+      className="flex items-center justify-center gap-2 bg-danger-soft px-4 py-1.5 text-xs font-medium text-danger-text"
     >
       <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-red" />
       {t('room.reconnecting')}

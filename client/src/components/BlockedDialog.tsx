@@ -17,7 +17,7 @@ export function BlockedDialog({ open, blocks, onClose, onUnban }: BlockedDialogP
   return (
     <Dialog open title={t('members.blockedTitle')} onClose={onClose}>
       {blocks.length === 0 ? (
-        <p className="text-sm text-subtext0">{t('members.blockedEmpty')}</p>
+        <p className="text-sm text-muted">{t('members.blockedEmpty')}</p>
       ) : (
         <ul className="max-h-72 space-y-1 overflow-y-auto">
           {blocks.map((block) => (
@@ -29,7 +29,7 @@ export function BlockedDialog({ open, blocks, onClose, onUnban }: BlockedDialogP
                 <p className="truncate text-sm text-text" title={block.nickname || block.userId}>
                   {block.nickname || block.userId}
                 </p>
-                <p className="text-xs text-subtext0">
+                <p className="text-xs text-muted">
                   {t(block.reason === 'ban' ? 'members.blockedBan' : 'members.blockedKick')}
                 </p>
               </div>
