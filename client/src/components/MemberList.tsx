@@ -126,30 +126,16 @@ export function MemberList({ actions, onCopyLink }: MemberListProps) {
         </div>
       </header>
 
-      {alone ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
-          <svg
-            aria-hidden="true"
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-muted"
-          >
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
-          <p className="max-w-[28ch] text-sm text-muted">{t('members.emptyAlone')}</p>
-          <Button onClick={onCopyLink} className="mt-1">
-            {t('room.copyLink')}
-          </Button>
-        </div>
-      ) : (
-        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+      {/* A phone gives this panel the whole screen, so the invite note is the
+          screen while nobody else is here. A desktop column that lists nobody
+          while its own header says "1/1" reads as broken, so there the roster
+          stays on screen and the note sits under it.
+          Nothing here grows: the room's own controls follow the list, and the
+          empty space falls under them rather than between the rows. The list
+          still scrolls, because a flex column shrinks this one to the height
+          the card has left. */}
+      <div className="flex min-h-0 flex-col overflow-y-auto">
+        <ul className={`${alone ? 'hidden lg:flex' : 'flex'} shrink-0 flex-col gap-0.5`}>
           {sorted.map((member) => (
             <MemberItem
               key={member.userId}
@@ -164,10 +150,34 @@ export function MemberList({ actions, onCopyLink }: MemberListProps) {
             />
           ))}
         </ul>
-      )}
+
+        {alone ? (
+          <div className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center lg:items-start lg:gap-2 lg:px-2 lg:py-1 lg:text-left">
+            <svg
+              aria-hidden="true"
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-muted lg:hidden"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21a8 8 0 0 1 16 0" />
+            </svg>
+            <p className="max-w-[28ch] text-sm text-muted">{t('members.emptyAlone')}</p>
+            <Button onClick={onCopyLink} className="mt-1 lg:mt-0">
+              {t('room.copyLink')}
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {you ? (
-        <div className="space-y-2 border-t border-surface0 pt-3">
+        <div className="shrink-0 space-y-2 border-t border-surface0 pt-3">
           <StatusPicker value={you.status} onChange={(status) => update({ status })} />
           <TaskInput value={you.task} onChange={(task) => update({ task })} />
         </div>

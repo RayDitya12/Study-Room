@@ -411,7 +411,10 @@ export function RoomPage() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+        {/* The timer and the music are a stack of capped width, not a wall to
+            paint: on a big monitor the leftover space belongs to the page, not
+            to an ever-wider card with one small ring in the middle of it. */}
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:mx-auto lg:w-full lg:max-w-[680px]">
           <div className={cardPanel(tab === 'timer')}>
             <TimerCard
               onTimerAction={actions.timerAction}

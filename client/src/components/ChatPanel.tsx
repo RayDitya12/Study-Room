@@ -68,7 +68,10 @@ export function ChatPanel({ onSend, onTyping }: ChatPanelProps) {
           className="h-full space-y-2 overflow-y-auto px-1"
         >
           {messages.length === 0 ? (
-            <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
+            // A phone centres the one line it has room for. On a desktop the
+            // thread starts at the top and grows down from there, so an empty
+            // one says the same thing from the same place.
+            <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted lg:items-start lg:justify-start lg:pt-6 lg:text-left">
               {t('chat.empty')}
             </p>
           ) : (

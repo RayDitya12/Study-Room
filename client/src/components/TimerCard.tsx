@@ -75,7 +75,7 @@ export function TimerCard({
   return (
     <section
       aria-label={t('room.timerTab')}
-      className="card flex h-full flex-col items-center justify-center gap-4 rounded-2xl p-4 sm:gap-5 sm:p-6"
+      className="card flex h-full flex-col items-center justify-center gap-4 rounded-2xl p-4 sm:gap-5 sm:p-6 lg:gap-4"
     >
       {/* The digits are aria-live="off" on purpose, so the one thing worth
           hearing — that the room has switched to break — gets its own region.
@@ -107,7 +107,7 @@ export function TimerCard({
           />
         </div>
       ) : (
-        <div className="relative mx-auto aspect-square w-full max-w-[240px]">
+        <div className="relative mx-auto aspect-square w-full max-w-[240px] xl:max-w-[260px]">
           <TimerRing phase={timer.phase} status={timer.status} progress={progress} />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
             <span
