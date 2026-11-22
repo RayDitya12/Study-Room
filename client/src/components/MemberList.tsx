@@ -118,7 +118,7 @@ export function MemberList({ actions, onCopyLink }: MemberListProps) {
             <button
               type="button"
               onClick={() => void openBlocked()}
-              className="rounded-md px-1.5 py-0.5 text-xs text-accent-text hover:bg-surface0"
+              className="rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger-text transition-[filter] hover:brightness-110"
             >
               {t('members.blocked')}
             </button>
