@@ -25,3 +25,6 @@ playwright/.cache/
 # Local build briefs, kept off the public history
 SPEC.md
 SPEC-ADDON.md
+
+# Throwaway screenshots from checking the app by hand
+scratch-*.png

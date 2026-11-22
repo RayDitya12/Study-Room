@@ -404,18 +404,20 @@ export function RoomPage() {
         </p>
       ) : null}
 
-      <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+      <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1536px] lg:grid-cols-[280px_minmax(0,1fr)_360px]">
         <div className={panel(tab === 'members')}>
           <div className="min-h-0 flex-1">
             <MemberList actions={actions} onCopyLink={() => void copyLink()} />
           </div>
         </div>
 
-        {/* The timer and the music are a stack of capped width, not a wall to
-            paint: on a big monitor the leftover space belongs to the page, not
-            to an ever-wider card with one small ring in the middle of it. */}
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto lg:mx-auto lg:w-full lg:max-w-[680px]">
-          <div className={cardPanel(tab === 'timer')}>
+        {/* The timer is the room's main object, so it gets the whole middle
+            column instead of a narrow card floating in the leftovers. The
+            column still scrolls, and the card grows into the height the music
+            leaves, so the empty space stays inside the timer rather than
+            falling under the stack as a strip of bare page. */}
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+          <div className={`${cardPanel(tab === 'timer')} lg:min-h-0 lg:flex-1 lg:basis-0`}>
             <TimerCard
               onTimerAction={actions.timerAction}
               onUpdateSettings={actions.updateSettings}

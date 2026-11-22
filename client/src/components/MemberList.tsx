@@ -130,11 +130,13 @@ export function MemberList({ actions, onCopyLink }: MemberListProps) {
           screen while nobody else is here. A desktop column that lists nobody
           while its own header says "1/1" reads as broken, so there the roster
           stays on screen and the note sits under it.
-          Nothing here grows: the room's own controls follow the list, and the
-          empty space falls under them rather than between the rows. The list
-          still scrolls, because a flex column shrinks this one to the height
-          the card has left. */}
-      <div className="flex min-h-0 flex-col overflow-y-auto">
+          On a desktop the card is as tall as the columns beside it, so the list
+          area takes the height the roster does not use. Your own controls sit
+          at the bottom of the card, and the room grows into the gap above them
+          instead of the emptiness falling under everything.
+          The list still scrolls, because a flex column shrinks this one to the
+          height the card has left. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ul className={`${alone ? 'hidden lg:flex' : 'flex'} shrink-0 flex-col gap-0.5`}>
           {sorted.map((member) => (
             <MemberItem
