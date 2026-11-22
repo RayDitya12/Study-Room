@@ -1,5 +1,5 @@
 import { usePrefsStore } from '../stores/prefsStore';
-import { resolveFlavor } from './flavors';
+import { DARK_FLAVOR, resolveFlavor } from './flavors';
 
 /**
  * Keeps `data-theme` / `color-scheme` on <html> in sync with the theme pref
@@ -11,7 +11,9 @@ export function initTheme(): void {
   const apply = () => {
     const flavor = resolveFlavor(usePrefsStore.getState().theme, media.matches);
     document.documentElement.dataset.theme = flavor;
-    document.documentElement.style.colorScheme = flavor;
+    // The flavor name is not a color-scheme keyword; handing it over makes the
+    // browser drop the declaration and keep its own light scrollbars.
+    document.documentElement.style.colorScheme = flavor === DARK_FLAVOR ? 'dark' : 'light';
     // Read from the palette rather than repeating it: browser chrome follows
     // the app, and the value cannot drift from the CSS.
     const base = getComputedStyle(document.documentElement).getPropertyValue('--ctp-base').trim();

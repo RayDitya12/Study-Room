@@ -149,7 +149,7 @@ export function TimerCard({
           disabled={!canControl || busy}
           aria-label={t('timer.reset')}
           title={t('timer.reset')}
-          className="flex h-10 w-10 items-center justify-center p-0"
+          className="flex h-10 w-10 items-center justify-center px-0!"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 12a9 9 0 1 0 3.2-6.9M3 4v5h5" />
@@ -161,7 +161,7 @@ export function TimerCard({
           disabled={!canControl || busy}
           aria-label={t('timer.skip')}
           title={t('timer.skip')}
-          className="flex h-10 w-10 items-center justify-center p-0"
+          className="flex h-10 w-10 items-center justify-center px-0!"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 4l10 8-10 8zM19 5v14" />
@@ -173,7 +173,7 @@ export function TimerCard({
             aria-label={t('room.settings')}
             title={t('room.settings')}
             onClick={() => onSettingsOpenChange(true)}
-            className="flex h-10 w-10 items-center justify-center p-0"
+            className="flex h-10 w-10 items-center justify-center px-0!"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
