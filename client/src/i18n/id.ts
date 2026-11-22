@@ -62,7 +62,6 @@ export const id: Messages = {
     sections: 'Bagian ruangan',
     reconnecting: 'Menghubungkan ulang…',
     settings: 'Pengaturan',
-    statusCycle: 'siklus {current}/{total}',
   },
   palette: {
     title: 'Perintah',
@@ -230,10 +229,6 @@ export const id: Messages = {
   },
   language: {
     label: 'Bahasa: {lang}',
-  },
-  sound: {
-    on: 'Suara aktif',
-    off: 'Suara nonaktif',
   },
   display: {
     title: 'Suara & tampilan',

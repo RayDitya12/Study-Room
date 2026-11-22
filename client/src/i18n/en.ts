@@ -60,7 +60,6 @@ export const en = {
     sections: 'Room sections',
     reconnecting: 'Reconnecting…',
     settings: 'Settings',
-    statusCycle: 'cycle {current}/{total}',
   },
   palette: {
     title: 'Commands',
@@ -228,10 +227,6 @@ export const en = {
   },
   language: {
     label: 'Language: {lang}',
-  },
-  sound: {
-    on: 'Sound on',
-    off: 'Sound off',
   },
   display: {
     title: 'Sound & display',

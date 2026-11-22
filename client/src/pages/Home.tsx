@@ -8,7 +8,6 @@ import { Button } from '../components/Button';
 import { CreateRoomForm } from '../components/CreateRoomForm';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { SoundToggle } from '../components/SoundToggle';
 import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
 import { RecentRooms } from '../components/RecentRooms';
 import { RoomPreview } from '../components/RoomPreview';
@@ -43,7 +42,6 @@ export function Home() {
           <LanguageToggle />
           <ThemeToggle />
           <SoundDisplayPopover />
-          <SoundToggle />
         </div>
       </header>
 
