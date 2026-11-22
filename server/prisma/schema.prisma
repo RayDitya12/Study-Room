@@ -24,6 +24,8 @@ model Room {
   modClientIds     String[]  @default([])
   mediaVideoId     String?
   mediaLoop        Boolean   @default(false)
+  // Requests waiting behind the current video, as a JSON array of {videoId, by}.
+  mediaQueue       String?
   // persisted timer
   timerPhase       String    @default("focus")
   timerStatus      String    @default("idle")

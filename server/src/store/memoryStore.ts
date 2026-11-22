@@ -27,6 +27,7 @@ export function createMemoryStore(): RoomStore {
         modClientIds: [],
         mediaVideoId: null,
         mediaLoop: false,
+        mediaQueue: [],
         createdAt: now,
         lastActiveAt: now,
       };

@@ -30,8 +30,12 @@ export interface MediaSyncState {
  * for the first video and survives every change after that, so a clear-and-replace
  * never pays for the script twice and never leaves the card pointing at a
  * destroyed player.
+ *
+ * `onTrackEnded` is the room's own way of learning a video finished: the server
+ * has no length for a YouTube clip, so whoever is watching says so and the next
+ * request takes over.
  */
-export function useMediaSync(): MediaSyncState {
+export function useMediaSync(onTrackEnded?: (videoId: string) => void): MediaSyncState {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const media = useRoomStore((s) => s.media);
   const listening = usePrefsStore((s) => s.musicListening);
@@ -39,6 +43,10 @@ export function useMediaSync(): MediaSyncState {
 
   const latest = useRef<MediaState | null>(media);
   latest.current = media;
+  // The player is built once, so it reaches the callback through a ref rather
+  // than through an effect dependency that would rebuild it.
+  const onTrackEndedRef = useRef(onTrackEnded);
+  onTrackEndedRef.current = onTrackEnded;
   const syncRef = useRef<MediaSync | null>(null);
   const pending = useRef<Promise<MediaPlayer> | null>(null);
   const mounted = useRef(true);
@@ -89,7 +97,11 @@ export function useMediaSync(): MediaSyncState {
           now: serverNowEstimate,
           callbacks: {
             onBlocked: setBlocked,
-            onEnded: setEnded,
+            onEnded: (isEnded) => {
+              setEnded(isEnded);
+              // The track is over on this screen, so the room may move on.
+              if (isEnded && latest.current?.videoId) onTrackEndedRef.current?.(latest.current.videoId);
+            },
             onError: () => setUnplayable(true),
           },
         });

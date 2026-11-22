@@ -168,7 +168,13 @@ export async function createYouTubePlayer(element: HTMLElement): Promise<MediaPl
       mute: () => void call((p) => p.mute(), undefined),
       unMute: () => void call((p) => p.unMute(), undefined),
       destroy: () => {
-        call((p) => p.destroy(), undefined);
+        // The API's instance only works while its iframe is in the page: after
+        // destroy() every method reads a null player and throws. Dropping the
+        // reference first means the adapter answers with its fallbacks instead,
+        // even when a queued sync tick still thinks the player is alive.
+        const player = inner;
+        inner = null;
+        if (player) player.destroy();
         // Whatever the API left in our host — the iframe, or the placeholder —
         // goes with it, so a remount never stacks players in one card.
         while (element.firstChild) element.removeChild(element.firstChild);

@@ -24,3 +24,11 @@ export function formatSpent(ms: number): string {
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
 }
+
+/**
+ * How a song is named where nobody can see the player: the room only ever
+ * shares the video id, so the short link is the most a reader can act on.
+ */
+export function formatTrack(videoId: string): string {
+  return `youtu.be/${videoId}`;
+}

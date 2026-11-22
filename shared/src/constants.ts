@@ -40,6 +40,12 @@ export const TIMER_PRESETS = [
 export const MEDIA = {
   URL_MAX: 200,
   /**
+   * How many requests wait behind the current video. A room of ten people can
+   * each ask once without anyone losing track of what is coming, and a longer
+   * list is a queue nobody in the room will hear.
+   */
+  QUEUE_MAX: 10,
+  /**
    * The whole player, disc and all, in pixels. Small on purpose: an embed
    * chooses its stream from the size it is rendered at, and a room that came to
    * work would rather spend the bandwidth on sound.
@@ -68,6 +74,7 @@ export const ERROR_CODES = [
   'BANNED',
   'INVALID_MEDIA_URL',
   'NO_MEDIA',
+  'QUEUE_FULL',
   'INTERNAL',
 ] as const;
 

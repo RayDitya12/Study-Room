@@ -4,6 +4,7 @@ import {
   complete,
   KICK_COOLDOWN_MS,
   LIMITS,
+  MEDIA,
   mediaMachine,
   parseYouTubeVideoId,
   pause as pauseTimer,
@@ -151,6 +152,7 @@ export class RoomRuntime {
       ...mediaMachine.createInitialMedia(clock.now()),
       videoId: stored.mediaVideoId,
       loop: stored.mediaLoop,
+      queue: stored.mediaQueue,
       status: stored.mediaVideoId ? 'paused' : 'stopped',
     };
     this.modClientIds = new Set(stored.modClientIds);
@@ -618,16 +620,43 @@ export class RoomRuntime {
 
   /**
    * The room's one shared video, exactly like the room's one shared timer: the
-   * server owns the state, positions come from its clock, and only a controller
-   * may change it.
+   * server owns the state and positions come from its clock. But asking for a
+   * song and steering it are different acts, so they have different gates —
+   * any member may put a request on the stack, only a controller touches the
+   * player.
    */
-  async setMedia(socket: RuntimeSocket, url: string): Promise<MediaState> {
-    const entry = this.requireMediaControl(socket);
+  async enqueueMedia(socket: RuntimeSocket, url: string): Promise<MediaState> {
+    const entry = this.requireMember(socket);
+    if (!this.mediaLimiter.allow(entry.clientId)) throw new AppError('RATE_LIMITED');
     const videoId = parseYouTubeVideoId(url);
     // Only the parsed id is ever stored or broadcast, never the submitted text.
     if (!videoId) throw new AppError('INVALID_MEDIA_URL');
-    const now = this.clock.now();
-    return this.commitMedia(mediaMachine.setVideo(this.media, videoId, entry.userId, now), 'set', entry.userId);
+    // A song already heard or already waiting is not a second copy of itself;
+    // pressing the same link over and over must not fill the queue with it.
+    if (mediaMachine.isRequested(this.media, videoId)) return this.media;
+    if (this.media.queue.length >= MEDIA.QUEUE_MAX) throw new AppError('QUEUE_FULL');
+    return this.commitMedia(
+      mediaMachine.enqueue(this.media, videoId, entry.userId, this.clock.now()),
+      'enqueue',
+      entry.userId,
+    );
+  }
+
+  /**
+   * The report that a track is over. Any member's player can raise it, because
+   * the room has no clock for a YouTube video's length and the client that is
+   * watching is the only witness — but the id must still be the one playing, so
+   * a late or repeated report can never skip two tracks at once.
+   */
+  async mediaEnded(socket: RuntimeSocket, videoId: string): Promise<MediaState> {
+    const entry = this.requireMember(socket);
+    if (!this.mediaLimiter.allow(entry.clientId)) throw new AppError('RATE_LIMITED');
+    if (this.media.videoId !== videoId || this.media.status !== 'playing') return this.media;
+    return this.commitMedia(
+      mediaMachine.advance(this.media, this.clock.now()),
+      'skip',
+      entry.userId,
+    );
   }
 
   async mediaAction(socket: RuntimeSocket, action: MediaAction): Promise<MediaState> {
@@ -641,6 +670,17 @@ export class RoomRuntime {
           ? mediaMachine.pause(this.media, now)
           : mediaMachine.clear(this.media);
     return this.commitMedia(next, action, entry.userId);
+  }
+
+  /** Controller: end this track and let the next request take over. */
+  async skipMedia(socket: RuntimeSocket): Promise<MediaState> {
+    const entry = this.requireMediaControl(socket);
+    if (this.media.videoId === null && this.media.queue.length === 0) throw new AppError('NO_MEDIA');
+    return this.commitMedia(
+      mediaMachine.advance(this.media, this.clock.now()),
+      'skip',
+      entry.userId,
+    );
   }
 
   async seekMedia(socket: RuntimeSocket, positionMs: number): Promise<MediaState> {
@@ -679,13 +719,18 @@ export class RoomRuntime {
     if (next === before) return before;
     this.media = next;
     this.touch();
-    // The playhead is deliberately never persisted; only the video and the loop
-    // choice outlive a restart.
-    if (next.videoId !== before.videoId || next.loop !== before.loop) {
+    // The playhead is deliberately never persisted; the song, the loop choice
+    // and the waiting requests are what outlive a restart.
+    if (
+      next.videoId !== before.videoId ||
+      next.loop !== before.loop ||
+      next.queue !== before.queue
+    ) {
       await this.store
         .saveRoomState(this.roomId, {
           mediaVideoId: next.videoId,
           mediaLoop: next.loop,
+          mediaQueue: next.queue,
           lastActiveAt: this.clock.now(),
         })
         .catch((err) => console.error('[room] failed to persist media:', err));

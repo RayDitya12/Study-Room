@@ -8,6 +8,7 @@ import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
 import { canControlTimer } from '../lib/permissions';
 import { useAmbient } from '../hooks/useAmbient';
+import { useChatSubmit } from '../hooks/useChatSubmit';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useFocusTracking } from '../hooks/useFocusTracking';
 import { useIsDark } from '../hooks/useIsDark';
@@ -39,7 +40,7 @@ import { TimerCard } from '../components/TimerCard';
 type Tab = 'timer' | 'members' | 'chat' | 'music';
 
 const panel = (active: boolean): string =>
-  `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex`;
+  `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex max-lg:min-h-[420px]`;
 
 /**
  * The middle column scrolls, so its cards are content-sized. A `flex-1` card in
@@ -68,6 +69,7 @@ export function RoomPage() {
   useAmbient();
   useFocusTracking(actions);
   usePhaseNotifications();
+  const submitChat = useChatSubmit(actions);
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const roomCode = useRoomStore((s) => s.code);
   const roomName = useRoomStore((s) => s.name);
@@ -375,7 +377,11 @@ export function RoomPage() {
         </p>
       ) : null}
 
-      <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1536px] lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+      {/* On a phone the page is the scroller: a column that scrolls inside a
+          column leaves each card a slice of the viewport tall, and the music
+          card and the chat list were the ones paying for it. From lg up the
+          three columns get their own height and only the middle scrolls. */}
+      <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1536px] lg:grid-cols-[280px_minmax(0,1fr)_360px] lg:overflow-hidden">
         <div className={panel(tab === 'members')}>
           <div className="min-h-0 flex-1">
             <MemberList actions={actions} onCopyLink={() => void copyLink()} />
@@ -387,7 +393,7 @@ export function RoomPage() {
             column still scrolls, and the card grows into the height the music
             leaves, so the empty space stays inside the timer rather than
             falling under the stack as a strip of bare page. */}
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+        <div className="flex flex-col gap-4 max-lg:shrink-0 lg:min-h-0 lg:overflow-y-auto">
           <div className={`${cardPanel(tab === 'timer')} lg:grow`}>
             <TimerCard
               onTimerAction={actions.timerAction}
@@ -406,10 +412,10 @@ export function RoomPage() {
           {showMusic ? (
             <div className={cardPanel(tab === 'music' || musicHeard)}>
               <MusicCard
-                onSetMedia={actions.setMedia}
                 onMediaAction={actions.mediaAction}
                 onSeek={actions.seekMedia}
                 onSetLoop={actions.setMediaLoop}
+                onTrackEnded={actions.trackEnded}
               />
             </div>
           ) : null}
@@ -418,7 +424,7 @@ export function RoomPage() {
         <div className={panel(tab === 'chat')}>
           <div className="min-h-0 flex-1">
             <ChatPanel
-              onSend={actions.sendChat}
+              onSend={submitChat}
               onTyping={actions.sendTyping}
             />
           </div>

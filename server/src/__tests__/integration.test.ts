@@ -516,7 +516,7 @@ describe('8. time:sync', () => {
 });
 
 describe('9. shared music', () => {
-  it('the host chooses the video, everyone hears the same state, members do not', async () => {
+  it('anyone may ask for a song, but only a controller steers the player', async () => {
     const hostCid = cid();
     const code = await server.createRoom({ name: 'Music room', clientId: hostCid });
     const a = await client();
@@ -524,15 +524,12 @@ describe('9. shared music', () => {
     await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
     const snapB = await joinRoom(b, { code, nickname: 'Budi', clientId: cid() });
 
-    expect(await emitAck<MediaState>(b, 'media:set', { url: 'https://youtu.be/dQw4w9WgXcQ' })).toEqual({
-      ok: false,
-      error: 'FORBIDDEN',
-    });
+    expect(await emitAck<MediaState>(b, 'media:skip', {})).toEqual({ ok: false, error: 'FORBIDDEN' });
     expect(await emitAck<MediaState>(b, 'media:pause', {})).toEqual({ ok: false, error: 'FORBIDDEN' });
 
     const onA = nextEvent<MediaStateEvent>(a, 'media:state');
     const onB = nextEvent<MediaStateEvent>(b, 'media:state');
-    const ack = await emitAck<MediaState>(a, 'media:set', {
+    const ack = await emitAck<MediaState>(a, 'media:enqueue', {
       url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s',
     });
     expect(ack.ok).toBe(true);
@@ -543,10 +540,20 @@ describe('9. shared music', () => {
     const eventA = await onA;
     expect(await onB).toEqual(eventA);
     expect(eventA.media).toEqual(ack.data);
-    expect(eventA.reason).toBe('set');
+    expect(eventA.reason).toBe('enqueue');
     expect(eventA.by).toBe(snapB.hostUserId);
 
-    // A moderator owns the music the same way they own the timer.
+    // A member's request waits its turn instead of cutting the track short.
+    const asked = await emitAck<MediaState>(b, 'media:enqueue', { url: 'https://youtu.be/oHg5SJYRHA0' });
+    expect(asked.ok).toBe(true);
+    if (!asked.ok) return;
+    expect(asked.data).toMatchObject({
+      videoId: 'dQw4w9WgXcQ',
+      queue: [{ videoId: 'oHg5SJYRHA0', by: snapB.you.userId }],
+      version: 2,
+    });
+
+    // A moderator owns the player the same way they own the timer.
     const c = await client();
     const snapC = await joinRoom(c, { code, nickname: 'Cici', clientId: cid() });
     expect(
@@ -560,12 +567,18 @@ describe('9. shared music', () => {
     const seeked = await emitAck<MediaState>(c, 'media:seek', { positionMs: 42_000 });
     expect(seeked.ok).toBe(true);
     if (!seeked.ok) return;
-    expect(seeked.data).toMatchObject({ anchorPositionMs: 42_000, status: 'playing', version: 2 });
+    expect(seeked.data).toMatchObject({ anchorPositionMs: 42_000, status: 'playing', version: 3 });
+
+    // Skipping hands the room to the next request.
+    const skipped = await emitAck<MediaState>(c, 'media:skip', {});
+    expect(skipped.ok).toBe(true);
+    if (!skipped.ok) return;
+    expect(skipped.data).toMatchObject({ videoId: 'oHg5SJYRHA0', status: 'playing', version: 4 });
 
     // A late joiner is told what is already playing.
     const d = await client();
     const snapD = await joinRoom(d, { code, nickname: 'Dewi', clientId: cid() });
-    expect(snapD.media).toMatchObject({ videoId: 'dQw4w9WgXcQ', status: 'playing', version: 2 });
+    expect(snapD.media).toMatchObject({ videoId: 'oHg5SJYRHA0', status: 'playing', version: 4 });
   });
 
   it('refuses a link that is not a YouTube video, and music that is not there', async () => {
@@ -574,15 +587,16 @@ describe('9. shared music', () => {
     const a = await client();
     await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
 
-    expect(await emitAck<MediaState>(a, 'media:set', { url: 'https://evil.example/x' })).toEqual({
+    expect(await emitAck<MediaState>(a, 'media:enqueue', { url: 'https://evil.example/x' })).toEqual({
       ok: false,
       error: 'INVALID_MEDIA_URL',
     });
-    expect(await emitAck<MediaState>(a, 'media:set', { url: 'https://youtu.be/short' })).toEqual({
+    expect(await emitAck<MediaState>(a, 'media:enqueue', { url: 'https://youtu.be/short' })).toEqual({
       ok: false,
       error: 'INVALID_MEDIA_URL',
     });
     expect(await emitAck<MediaState>(a, 'media:play', {})).toEqual({ ok: false, error: 'NO_MEDIA' });
+    expect(await emitAck<MediaState>(a, 'media:skip', {})).toEqual({ ok: false, error: 'NO_MEDIA' });
     expect(await emitAck<MediaState>(a, 'media:seek', { positionMs: 1_000 })).toEqual({
       ok: false,
       error: 'NO_MEDIA',
@@ -593,7 +607,7 @@ describe('9. shared music', () => {
     });
     // Payloads are strict, so an extra field is never quietly ignored.
     expect(
-      await emitAck<MediaState>(a, 'media:set', {
+      await emitAck<MediaState>(a, 'media:enqueue', {
         url: 'https://youtu.be/dQw4w9WgXcQ',
         html: '<script></script>',
       } as never),
@@ -605,10 +619,10 @@ describe('9. shared music', () => {
     const code = await server.createRoom({ name: 'Fast music', clientId: hostCid });
     const a = await client();
     await joinRoom(a, { code, nickname: 'Anna', clientId: hostCid });
-    expect((await emitAck<MediaState>(a, 'media:set', { url: 'dQw4w9WgXcQ' })).ok).toBe(true);
+    expect((await emitAck<MediaState>(a, 'media:enqueue', { url: 'dQw4w9WgXcQ' })).ok).toBe(true);
 
     // Sent at once, so the bucket cannot refill between commands. The bucket
-    // holds six, and media:set already spent one of them.
+    // holds six, and the request already spent one of them.
     const results = await Promise.all(
       Array.from({ length: 8 }, (_, i) =>
         emitAck<MediaState>(a, 'media:setLoop', { loop: i % 2 === 0 }),

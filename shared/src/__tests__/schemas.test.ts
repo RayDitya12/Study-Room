@@ -8,8 +8,9 @@ import {
   focusStatePayloadSchema,
   joinRoomPayloadSchema,
   mediaLoopPayloadSchema,
+  mediaEndedPayloadSchema,
+  mediaEnqueuePayloadSchema,
   mediaSeekPayloadSchema,
-  mediaSetPayloadSchema,
   nicknameSchema,
   roomCodeSchema,
   roomSettingsInputSchema,
@@ -136,14 +137,14 @@ describe('clientIdSchema', () => {
 
 describe('media payloads', () => {
   it('accepts a link up to the URL cap', () => {
-    expect(mediaSetPayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ' }).success).toBe(
+    expect(mediaEnqueuePayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ' }).success).toBe(
       true,
     );
-    expect(mediaSetPayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX) }).success).toBe(true);
-    expect(mediaSetPayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX + 1) }).success).toBe(
+    expect(mediaEnqueuePayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX) }).success).toBe(true);
+    expect(mediaEnqueuePayloadSchema.safeParse({ url: 'a'.repeat(MEDIA.URL_MAX + 1) }).success).toBe(
       false,
     );
-    expect(mediaSetPayloadSchema.safeParse({ url: '   ' }).success).toBe(false);
+    expect(mediaEnqueuePayloadSchema.safeParse({ url: '   ' }).success).toBe(false);
   });
 
   it('bounds a seek position to a whole number of milliseconds', () => {
@@ -159,9 +160,15 @@ describe('media payloads', () => {
     expect(mediaLoopPayloadSchema.safeParse({ loop: 'yes' }).success).toBe(false);
   });
 
+  it('takes the id of the track a player says has finished', () => {
+    expect(mediaEndedPayloadSchema.safeParse({ videoId: 'dQw4w9WgXcQ' }).success).toBe(true);
+    expect(mediaEndedPayloadSchema.safeParse({ videoId: '' }).success).toBe(false);
+    expect(mediaEndedPayloadSchema.safeParse({ videoId: 'x'.repeat(65) }).success).toBe(false);
+  });
+
   it('rejects unknown fields', () => {
     expect(
-      mediaSetPayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ', autoplay: true })
+      mediaEnqueuePayloadSchema.safeParse({ url: 'https://youtu.be/dQw4w9WgXcQ', autoplay: true })
         .success,
     ).toBe(false);
   });
