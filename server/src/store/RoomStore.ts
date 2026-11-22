@@ -1,4 +1,4 @@
-import type { BlockReason, RoomSettings, TimerState } from '@studyroom/shared';
+import type { BlockReason, QueuedTrack, RoomSettings, TimerState } from '@studyroom/shared';
 
 export interface StoredRoom {
   id: string;
@@ -10,9 +10,10 @@ export interface StoredRoom {
   timer: TimerState;
   /** Moderators are keyed by clientId so the tier survives a restart. */
   modClientIds: string[];
-  /** Only the video id is persisted; the playhead is not. */
+  /** Only the video id and the waiting requests are persisted; not the playhead. */
   mediaVideoId: string | null;
   mediaLoop: boolean;
+  mediaQueue: QueuedTrack[];
   createdAt: number;
   lastActiveAt: number;
 }
@@ -60,6 +61,7 @@ export type RoomStatePatch = Partial<{
   modClientIds: string[];
   mediaVideoId: string | null;
   mediaLoop: boolean;
+  mediaQueue: QueuedTrack[];
   lastActiveAt: number;
 }>;
 

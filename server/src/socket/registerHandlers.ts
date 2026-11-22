@@ -5,9 +5,10 @@ import {
   focusSetTrackingPayloadSchema,
   focusStatePayloadSchema,
   joinRoomPayloadSchema,
+  mediaEndedPayloadSchema,
+  mediaEnqueuePayloadSchema,
   mediaLoopPayloadSchema,
   mediaSeekPayloadSchema,
-  mediaSetPayloadSchema,
   memberTargetPayloadSchema,
   memberUpdatePayloadSchema,
   roomSettingsPatchSchema,
@@ -151,9 +152,16 @@ export function registerHandlers(
     );
 
     socket.on(
-      'media:set',
-      handle(mediaSetPayloadSchema, (payload, s) => runtimeOf(s).setMedia(s, payload.url)),
+      'media:enqueue',
+      handle(mediaEnqueuePayloadSchema, (payload, s) => runtimeOf(s).enqueueMedia(s, payload.url)),
     );
+
+    socket.on(
+      'media:ended',
+      handle(mediaEndedPayloadSchema, (payload, s) => runtimeOf(s).mediaEnded(s, payload.videoId)),
+    );
+
+    socket.on('media:skip', handle(emptyPayloadSchema, (_payload, s) => runtimeOf(s).skipMedia(s)));
 
     const mediaHandler = (action: 'play' | 'pause' | 'clear') =>
       handle(emptyPayloadSchema, (_payload, s): Promise<MediaState> =>

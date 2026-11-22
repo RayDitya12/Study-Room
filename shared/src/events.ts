@@ -25,7 +25,14 @@ export interface TimeSyncResult {
 
 export type TimerChangeReason = 'start' | 'pause' | 'reset' | 'skip' | 'complete' | 'settings';
 
-export type MediaChangeReason = 'set' | 'play' | 'pause' | 'seek' | 'loop' | 'clear';
+export type MediaChangeReason =
+  | 'enqueue'
+  | 'skip'
+  | 'play'
+  | 'pause'
+  | 'seek'
+  | 'loop'
+  | 'clear';
 
 /** Why a focus session ended; a pause never ends one. */
 export type FocusEndReason = 'complete' | 'skip' | 'reset';
@@ -58,7 +65,7 @@ export interface SetMutedPayload {
   isMuted: boolean;
 }
 
-export interface MediaSetPayload {
+export interface MediaEnqueuePayload {
   url: string;
 }
 
@@ -68,6 +75,10 @@ export interface MediaSeekPayload {
 
 export interface MediaLoopPayload {
   loop: boolean;
+}
+
+export interface MediaEndedPayload {
+  videoId: string;
 }
 
 export interface FocusSetTrackingPayload {
@@ -118,10 +129,21 @@ export interface ClientToServerEvents {
   ) => void;
   /** Host-only: the kick/ban list, so a mistaken block can be lifted. */
   'room:getBlocks': (payload: EmptyPayload, ack: (res: Ack<BlockedMember[]>) => void) => void;
-  /** Host or moderator: the whole shared music player, like the timer. */
-  'media:set': (payload: MediaSetPayload, ack: (res: Ack<MediaState>) => void) => void;
+  /**
+   * Any member: ask for a song. It joins the queue, and starts playing only if
+   * the room is silent — one request must not cut a track short.
+   */
+  'media:enqueue': (payload: MediaEnqueuePayload, ack: (res: Ack<MediaState>) => void) => void;
+  /**
+   * Any member: this track finished on my player, so the next request may take
+   * over. The id must be the one the room is playing, which keeps a stale or
+   * spammy report from skipping ahead.
+   */
+  'media:ended': (payload: MediaEndedPayload, ack: (res: Ack<MediaState>) => void) => void;
   'media:play': (payload: EmptyPayload, ack: (res: Ack<MediaState>) => void) => void;
   'media:pause': (payload: EmptyPayload, ack: (res: Ack<MediaState>) => void) => void;
+  /** Host or moderator: end this track and start the next one waiting. */
+  'media:skip': (payload: EmptyPayload, ack: (res: Ack<MediaState>) => void) => void;
   'media:seek': (payload: MediaSeekPayload, ack: (res: Ack<MediaState>) => void) => void;
   'media:setLoop': (payload: MediaLoopPayload, ack: (res: Ack<MediaState>) => void) => void;
   'media:clear': (payload: EmptyPayload, ack: (res: Ack<MediaState>) => void) => void;

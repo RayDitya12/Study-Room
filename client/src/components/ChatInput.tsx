@@ -41,6 +41,17 @@ export function ChatInput({ disabled, onSend, onTyping }: ChatInputProps) {
 
   useEffect(() => stopTyping, []);
 
+  // The box starts at one line and grows with what is typed, up to the height
+  // where scrolling is the honest answer. A fixed one-liner would spend its
+  // space on a scrollbar as soon as the hint wrapped.
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${Math.min(box.scrollHeight, 128)}px`;
+  }, [draft]);
+
   const submit = async (): Promise<void> => {
     const text = draft.trim();
     if (!text || disabled) return;
@@ -53,6 +64,7 @@ export function ChatInput({ disabled, onSend, onTyping }: ChatInputProps) {
     <div className="space-y-1">
       <div className="flex items-end gap-2 rounded-2xl border border-surface1 bg-mantle p-2 focus-within:border-mauve">
         <textarea
+          ref={boxRef}
           rows={1}
           value={draft}
           disabled={disabled}

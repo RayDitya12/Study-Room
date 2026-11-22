@@ -61,6 +61,15 @@ export type MediaPlayerState = 'unstarted' | 'ended' | 'playing' | 'paused' | 'b
 /** Whether the client should re-seek to the server target. */
 export type MediaCorrection = 'none' | 'seek';
 
+/**
+ * One requested track waiting behind the video that is playing. The room keeps
+ * the id, never the link someone pasted, and the id of the person who asked.
+ */
+export interface QueuedTrack {
+  videoId: string;
+  by: string;
+}
+
 export interface MediaState {
   /** Validated 11-character YouTube id, null when nothing is queued. */
   videoId: string | null;
@@ -72,6 +81,8 @@ export interface MediaState {
   loop: boolean;
   /** Public userId of whoever set the current video. */
   setBy: string | null;
+  /** Waiting tracks, next one first. */
+  queue: QueuedTrack[];
   /** Increments on every change. */
   version: number;
 }

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advance,
   clear,
   computeCorrection,
   createInitialMedia,
   effectivePositionMs,
+  enqueue,
+  isRequested,
   pause,
   play,
   positionAt,
@@ -27,6 +30,7 @@ describe('createInitialMedia', () => {
       anchorAt: T0,
       loop: false,
       setBy: null,
+      queue: [],
       version: 0,
     });
   });
@@ -44,6 +48,63 @@ describe('setVideo', () => {
     const m = setVideo(looping, 'aaaaaaaaaaa', 'bob', T0 + 500);
     expect(m.loop).toBe(true);
     expect(m.anchorPositionMs).toBe(0);
+  });
+});
+
+describe('enqueue and advance', () => {
+  const OTHER = 'aaaaaaaaaaa';
+  const THIRD = 'bbbbbbbbbbb';
+
+  it('becomes the song when the room is silent', () => {
+    const m = enqueue(createInitialMedia(T0), ID, 'anna', T0);
+    expect(m).toMatchObject({ videoId: ID, status: 'playing', anchorPositionMs: 0, setBy: 'anna' });
+    expect(m.queue).toEqual([]);
+  });
+
+  it('waits its turn behind a playing track instead of cutting it short', () => {
+    const m = enqueue(enqueue(loaded(), OTHER, 'bob', T0 + 1), THIRD, 'cara', T0 + 2);
+    expect(m).toMatchObject({ videoId: ID, status: 'playing', setBy: 'anna' });
+    expect(m.queue).toEqual([
+      { videoId: OTHER, by: 'bob' },
+      { videoId: THIRD, by: 'cara' },
+    ]);
+  });
+
+  it('drops the track it hands over, so nothing plays twice', () => {
+    const queued = enqueue(enqueue(loaded(), OTHER, 'bob', T0 + 1), THIRD, 'cara', T0 + 2);
+    const next = advance(queued, T0 + 3);
+    expect(next).toMatchObject({
+      videoId: OTHER,
+      status: 'playing',
+      anchorPositionMs: 0,
+      setBy: 'bob',
+    });
+    expect(next.queue).toEqual([{ videoId: THIRD, by: 'cara' }]);
+  });
+
+  it('goes quiet when the last track ends', () => {
+    const m = advance(loaded(), T0 + 4);
+    expect(m.videoId).toBeNull();
+    expect(m.status).toBe('stopped');
+  });
+
+  it('is a no-op on a room that was already silent', () => {
+    const empty = createInitialMedia(T0);
+    expect(advance(empty, T0 + 1)).toBe(empty);
+  });
+
+  it('recognises a track already playing or already waiting', () => {
+    const queued = enqueue(loaded(), OTHER, 'bob', T0 + 1);
+    expect(isRequested(queued, ID)).toBe(true);
+    expect(isRequested(queued, OTHER)).toBe(true);
+    expect(isRequested(queued, THIRD)).toBe(false);
+    expect(isRequested(createInitialMedia(T0), ID)).toBe(false);
+  });
+
+  it('clears the waiting requests along with the song', () => {
+    const m = clear(enqueue(loaded(), OTHER, 'bob', T0 + 1));
+    expect(m.queue).toEqual([]);
+    expect(m.videoId).toBeNull();
   });
 });
 

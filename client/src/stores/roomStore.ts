@@ -13,6 +13,7 @@ import type {
   TimerStateEvent,
 } from '@studyroom/shared';
 import type { TranslationKey } from '../i18n/en';
+import { formatTrack } from '../lib/format';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -71,6 +72,8 @@ interface RoomState {
   settingsUpdated: (settings: RoomSettings) => void;
   timerState: (event: TimerStateEvent) => void;
   mediaState: (event: MediaStateEvent) => void;
+  /** A chat command's own answer, said only in this browser. */
+  notice: (key: TranslationKey, params?: Record<string, string>) => void;
   focusSummaryReceived: (event: FocusSummaryEvent | null) => void;
   chatMessage: (message: ChatMessage) => void;
   chatTyping: (userId: string, isTyping: boolean) => void;
@@ -248,8 +251,22 @@ export const useRoomStore = create<RoomState>()((set) => ({
   mediaState: (event) =>
     set((s) => {
       if (s.media && event.media.version < s.media.version) return s;
-      return { media: event.media };
+      const next = event.media;
+      // A track handed over by the queue and a request that started playing
+      // look the same from the thread, so both are said here, once, for
+      // everyone in the room instead of only for whoever typed.
+      if (next.videoId === s.media?.videoId) return { media: next };
+      const name = s.members.find((m) => m.userId === next.setBy)?.nickname;
+      const line = !next.videoId
+        ? systemLine('chat.musicStopped')
+        : name
+          ? systemLine('chat.nowPlaying', { track: formatTrack(next.videoId), name })
+          : systemLine('chat.nowPlayingGone', { track: formatTrack(next.videoId) });
+      return { media: next, messages: [...s.messages, line] };
     }),
+
+  /** A command's answer, said only in this browser: the thread is where the command was typed. */
+  notice: (key, params) => set((s) => ({ messages: [...s.messages, systemLine(key, params)] })),
 
   // Null closes the dialog; the event itself is not a log, so nothing is kept.
   focusSummaryReceived: (event) => set({ focusSummary: event }),

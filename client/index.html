@@ -45,7 +45,7 @@
           (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         var flavor = dark ? 'mocha' : 'latte';
         document.documentElement.dataset.theme = flavor;
-        document.documentElement.style.colorScheme = flavor;
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
         document.documentElement.lang = prefs.lang === 'id' ? 'id' : 'en';
         var accent = document.querySelector('meta[name="theme-color"]');
         if (accent) accent.setAttribute('content', flavor === 'mocha' ? '#1e1e2e' : '#eff1f5');

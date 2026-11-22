@@ -118,7 +118,7 @@ describe('roomStore', () => {
       'u1',
       5_000,
     );
-    useRoomStore.getState().mediaState({ media: video, reason: 'set', by: 'u1' });
+    useRoomStore.getState().mediaState({ media: video, reason: 'enqueue', by: 'u1' });
     expect(useRoomStore.getState().media).toEqual(video);
   });
 
@@ -131,9 +131,52 @@ describe('roomStore', () => {
       5_000,
     );
     useRoomStore.getState().mediaState({ media: mediaMachine.pause(video, 6_000), reason: 'pause' });
-    useRoomStore.getState().mediaState({ media: video, reason: 'set', by: 'u1' });
+    useRoomStore.getState().mediaState({ media: video, reason: 'enqueue', by: 'u1' });
     expect(useRoomStore.getState().media?.version).toBe(video.version + 1);
     expect(useRoomStore.getState().media?.status).toBe('paused');
+  });
+
+  it('says in the thread which song the room took over', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    const video = mediaMachine.enqueue(
+      mediaMachine.createInitialMedia(5_000),
+      'dQw4w9WgXcQ',
+      'u1',
+      5_000,
+    );
+    useRoomStore.getState().mediaState({ media: video, reason: 'enqueue', by: 'u1' });
+    expect(lines().map((line) => line.key)).toEqual(['chat.nowPlaying']);
+    expect(lines()[0]?.params).toEqual({ track: 'youtu.be/dQw4w9WgXcQ', name: 'Anna' });
+
+    // The same song going on is not news; only a new face on the record is.
+    useRoomStore.getState().mediaState({ media: mediaMachine.pause(video, 9_000), reason: 'pause' });
+    expect(lines()).toHaveLength(1);
+
+    useRoomStore.getState().mediaState({
+      media: mediaMachine.clear(video),
+      reason: 'clear',
+      by: 'u1',
+    });
+    expect(lines().map((line) => line.key)).toEqual(['chat.nowPlaying', 'chat.musicStopped']);
+  });
+
+  it('names no one when the requester has already left', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    const video = mediaMachine.setVideo(
+      mediaMachine.createInitialMedia(5_000),
+      'dQw4w9WgXcQ',
+      'gone',
+      5_000,
+    );
+    useRoomStore.getState().mediaState({ media: video, reason: 'skip', by: 'gone' });
+    expect(lines()[0]?.key).toBe('chat.nowPlayingGone');
+    expect(lines()[0]?.params).toEqual({ track: 'youtu.be/dQw4w9WgXcQ' });
+  });
+
+  it('answers a command in the thread without touching the room', () => {
+    useRoomStore.getState().applySnapshot(snapshot());
+    useRoomStore.getState().notice('chat.cmdDuplicate', { track: 'youtu.be/dQw4w9WgXcQ' });
+    expect(lines().map((line) => line.key)).toEqual(['chat.cmdDuplicate']);
   });
 
   it('writes a phase line only when the server completed a phase', () => {

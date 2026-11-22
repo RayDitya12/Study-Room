@@ -1,4 +1,9 @@
-import type { MediaCorrection, MediaPlayerState, MediaState } from './types';
+import type {
+  MediaCorrection,
+  MediaPlayerState,
+  MediaState,
+  QueuedTrack,
+} from './types';
 
 /**
  * The shared music player, as a pure state machine. Like the timer the server
@@ -15,6 +20,7 @@ export function createInitialMedia(now: number): MediaState {
     anchorAt: now,
     loop: false,
     setBy: null,
+    queue: [],
     version: 0,
   };
 }
@@ -34,6 +40,36 @@ export function setVideo(m: MediaState, videoId: string, by: string, now: number
     setBy: by,
     version: m.version + 1,
   };
+}
+
+/**
+ * A request from anyone in the room. While the room is silent the request
+ * becomes the song, because that is the whole point of asking; once something
+ * is playing it waits its turn at the back instead of cutting the track short.
+ */
+export function enqueue(m: MediaState, videoId: string, by: string, now: number): MediaState {
+  if (m.videoId === null) return setVideo({ ...m, queue: [] }, videoId, by, now);
+  const track: QueuedTrack = { videoId, by };
+  return { ...m, queue: [...m.queue, track], version: m.version + 1 };
+}
+
+/**
+ * The end of a track, whether someone skipped it or the video ran out. The
+ * next request takes over; with nothing waiting the room goes quiet.
+ */
+export function advance(m: MediaState, now: number): MediaState {
+  if (m.videoId === null && m.queue.length === 0) return m;
+  const [next, ...rest] = m.queue;
+  if (!next) return clear(m);
+  return setVideo({ ...m, queue: rest }, next.videoId, next.by, now);
+}
+
+/**
+ * Has this song already been asked for? One person pressing the same link over
+ * and over must be able to fill a queue of ten with one track.
+ */
+export function isRequested(m: MediaState, videoId: string): boolean {
+  return m.videoId === videoId || m.queue.some((track) => track.videoId === videoId);
 }
 
 export function play(m: MediaState, now: number): MediaState {
@@ -65,13 +101,14 @@ export function setLoop(m: MediaState, loop: boolean): MediaState {
 }
 
 export function clear(m: MediaState): MediaState {
-  if (m.videoId === null && m.status === 'stopped') return m;
+  if (m.videoId === null && m.status === 'stopped' && m.queue.length === 0) return m;
   return {
     ...m,
     videoId: null,
     status: 'stopped',
     anchorPositionMs: 0,
     anchorAt: m.anchorAt,
+    queue: [],
     version: m.version + 1,
   };
 }

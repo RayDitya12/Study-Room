@@ -8,6 +8,7 @@ import { copyText } from '../lib/clipboard';
 import { formatRemaining } from '../lib/format';
 import { canControlTimer } from '../lib/permissions';
 import { useAmbient } from '../hooks/useAmbient';
+import { useChatSubmit } from '../hooks/useChatSubmit';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useFocusTracking } from '../hooks/useFocusTracking';
 import { useIsDark } from '../hooks/useIsDark';
@@ -33,14 +34,13 @@ import { MemberList } from '../components/MemberList';
 import { MusicCard, useMediaControl } from '../components/MusicCard';
 import { PresenceStrip } from '../components/PresenceStrip';
 import { SoundDisplayPopover } from '../components/SoundDisplayPopover';
-import { SoundToggle } from '../components/SoundToggle';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { TimerCard } from '../components/TimerCard';
 
 type Tab = 'timer' | 'members' | 'chat' | 'music';
 
 const panel = (active: boolean): string =>
-  `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex`;
+  `${active ? 'flex' : 'hidden'} min-h-0 flex-col lg:flex max-lg:min-h-[420px]`;
 
 /**
  * The middle column scrolls, so its cards are content-sized. A `flex-1` card in
@@ -69,6 +69,7 @@ export function RoomPage() {
   useAmbient();
   useFocusTracking(actions);
   usePhaseNotifications();
+  const submitChat = useChatSubmit(actions);
   const hasRoom = useRoomStore((s) => s.hasRoom);
   const roomCode = useRoomStore((s) => s.code);
   const roomName = useRoomStore((s) => s.name);
@@ -274,25 +275,6 @@ export function RoomPage() {
       : null;
   useDocumentTitle(documentTitle);
 
-  // The room at a glance, in one line a wide screen has room for. Everything in
-  // it is also on screen somewhere else (ring, member list, the address bar),
-  // so it stays out of the accessibility tree rather than saying the same
-  // things twice. The room code moves here from the row under the name.
-  const statusLine =
-    inThisRoom && timer && settings
-      ? [
-          `${t(`timer.${timer.phase}`).toUpperCase()} ${formatRemaining(
-            getRemainingMs(timer, serverNowEstimate()),
-          )}`,
-          t('members.onlineCount', { count: onlineCount }),
-          t('room.statusCycle', {
-            current: Math.min(timer.completedFocus + 1, settings.cyclesBeforeLong),
-            total: settings.cyclesBeforeLong,
-          }),
-          code,
-        ].join(' · ')
-      : null;
-
   const copyLink = async (): Promise<void> => {
     const ok = await copyText(`${window.location.origin}/r/${code}`);
     pushToast(t(ok ? 'toasts.linkCopied' : 'toasts.copyFailed'));
@@ -359,7 +341,7 @@ export function RoomPage() {
             {roomName || t('app.title')}
           </h1>
           <div className="flex min-w-0 items-center gap-x-2 text-xs">
-            <span className="shrink-0 font-mono tracking-wider text-muted lg:hidden">{code}</span>
+            <span className="shrink-0 font-mono tracking-wider text-muted">{code}</span>
             <button
               type="button"
               onClick={() => void copyLink()}
@@ -377,18 +359,9 @@ export function RoomPage() {
             ) : null}
           </div>
         </div>
-        {statusLine ? (
-          <p
-            aria-hidden="true"
-            className="hidden shrink-0 font-mono text-xs tracking-wider text-muted lg:block"
-          >
-            {statusLine}
-          </p>
-        ) : null}
         <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-mantle p-0.5">
           <LanguageToggle />
           <SoundDisplayPopover />
-          <SoundToggle />
           <ThemeToggle />
         </div>
       </header>
@@ -404,15 +377,24 @@ export function RoomPage() {
         </p>
       ) : null}
 
-      <main className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+      {/* On a phone the page is the scroller: a column that scrolls inside a
+          column leaves each card a slice of the viewport tall, and the music
+          card and the chat list were the ones paying for it. From lg up the
+          three columns get their own height and only the middle scrolls. */}
+      <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1536px] lg:grid-cols-[280px_minmax(0,1fr)_360px] lg:overflow-hidden">
         <div className={panel(tab === 'members')}>
           <div className="min-h-0 flex-1">
             <MemberList actions={actions} onCopyLink={() => void copyLink()} />
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-          <div className={cardPanel(tab === 'timer')}>
+        {/* The timer is the room's main object, so it gets the whole middle
+            column instead of a narrow card floating in the leftovers. The
+            column still scrolls, and the card grows into the height the music
+            leaves, so the empty space stays inside the timer rather than
+            falling under the stack as a strip of bare page. */}
+        <div className="flex flex-col gap-4 max-lg:shrink-0 lg:min-h-0 lg:overflow-y-auto">
+          <div className={`${cardPanel(tab === 'timer')} lg:grow`}>
             <TimerCard
               onTimerAction={actions.timerAction}
               onUpdateSettings={actions.updateSettings}
@@ -430,10 +412,10 @@ export function RoomPage() {
           {showMusic ? (
             <div className={cardPanel(tab === 'music' || musicHeard)}>
               <MusicCard
-                onSetMedia={actions.setMedia}
                 onMediaAction={actions.mediaAction}
                 onSeek={actions.seekMedia}
                 onSetLoop={actions.setMediaLoop}
+                onTrackEnded={actions.trackEnded}
               />
             </div>
           ) : null}
@@ -442,7 +424,7 @@ export function RoomPage() {
         <div className={panel(tab === 'chat')}>
           <div className="min-h-0 flex-1">
             <ChatPanel
-              onSend={actions.sendChat}
+              onSend={submitChat}
               onTyping={actions.sendTyping}
             />
           </div>

@@ -2,6 +2,7 @@ import type { PrismaClient, Room as PrismaRoom } from '@prisma/client';
 import {
   createInitialTimer,
   LIMITS,
+  type QueuedTrack,
   type RoomSettings,
   type TimerControl,
   type TimerPhase,
@@ -9,6 +10,20 @@ import {
   type TimerStatus,
 } from '@studyroom/shared';
 import type { RoomStore, StoredBlock, StoredMessage, StoredRoom } from './RoomStore';
+
+/**
+ * The waiting requests live in one text column as JSON. A row written by an
+ * older build, or edited by hand, must not take the whole room down on load.
+ */
+function toQueue(value: string | null): QueuedTrack[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as QueuedTrack[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 function toStoredRoom(row: PrismaRoom): StoredRoom {
   const settings: RoomSettings = {
@@ -40,6 +55,7 @@ function toStoredRoom(row: PrismaRoom): StoredRoom {
     modClientIds: row.modClientIds,
     mediaVideoId: row.mediaVideoId,
     mediaLoop: row.mediaLoop,
+    mediaQueue: toQueue(row.mediaQueue),
     createdAt: row.createdAt.getTime(),
     lastActiveAt: row.lastActiveAt.getTime(),
   };
@@ -98,6 +114,7 @@ export function createPrismaStore(prisma: PrismaClient): RoomStore {
       if (patch.modClientIds !== undefined) data.modClientIds = patch.modClientIds;
       if ('mediaVideoId' in patch) data.mediaVideoId = patch.mediaVideoId;
       if (patch.mediaLoop !== undefined) data.mediaLoop = patch.mediaLoop;
+      if (patch.mediaQueue !== undefined) data.mediaQueue = JSON.stringify(patch.mediaQueue);
       if (patch.timer) {
         data.timerPhase = patch.timer.phase;
         data.timerStatus = patch.timer.status;

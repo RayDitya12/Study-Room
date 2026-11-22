@@ -41,6 +41,8 @@ Not captured yet. Add them to `docs/screenshots/` (see the note in that folder) 
 
 ## Architecture
 
+Detailed architecture, server-authoritative timer mechanics, state machine purity, identity models, and privacy design are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ```mermaid
 flowchart LR
   subgraph Browser
@@ -59,88 +61,7 @@ flowchart LR
   ST --> PG[(prismaStore -> PostgreSQL)]
 ```
 
-**Server-authoritative timer.** The server never trusts a client's countdown. A running phase is
-stored as an absolute deadline: `endsAt = now + remainingMs` in *server* epoch milliseconds, plus
-`remainingMs` for the paused/idle case. Clients only render
-`max(0, endsAt - serverNowEstimate())`. Because the deadline is absolute, a server restart, a
-sleeping laptop, or a tab that was throttled in the background cannot drift the timer: when the
-server boots it reloads the room, sees that `endsAt` is in the past, and completes the overdue phase
-exactly once. Client clocks are aligned with a `time:sync` round trip — five samples on connect,
-`offset = serverNow + rtt/2 - receivedAt`, and the sample with the **smallest RTT** wins; it re-syncs
-every 30 s and when the tab becomes visible again. Client intervals would have made every browser a
-separate source of truth, and two tabs would disagree within a minute.
-
-**Reconnect and grace period.** Each member holds a *set* of sockets, so several tabs are one
-member. When the last socket drops, the member is marked offline and a grace timer starts
-(`PRESENCE_GRACE_MS`, 15 s by default). Reconnecting with the same `clientId` cancels it and reclaims
-the same seat, nickname, task and host flag; only when the grace period expires is the member
-removed and `member:left` broadcast. An explicit `room:leave` (navigating away) removes immediately.
-If the room empties while the timer runs, the timer is paused so nobody returns to a finished
-session.
-
-**Host transfer.** The host can transfer the role to any online member. If the host leaves or drops
-past the grace period, the role goes automatically to the online member with the smallest
-`joinedAt`, and the new state is persisted before `room:hostChanged` is broadcast.
-
-**Moderators.** There is always exactly one host, but the host can hand out a lower tier: the three-dot
-menu on a member row offers timer control, make host, mute, kick and ban. A moderator may drive the
-timer and the shared music — start, pause, reset, skip, and every `media:*` command — and nothing else:
-room settings, role changes and moderation stay host-only, and every one of those checks is enforced on
-the server, not just hidden in the UI. Promoting a moderator to host clears the flag. In chat the host's
-name is gold and a moderator's is silver. The list of moderator `clientId`s is stored on the room row
-(`modClientIds`), so a server restart restores the tier along with the room; a moderator who is not
-present is simply not shown until they rejoin.
-
-**Kick and ban.** Mute blocks chat only: `chat:send` answers `MUTED` and that member's typing
-indicators are dropped without a broadcast. A kick writes a `RoomBlock` row that expires after 15
-minutes; a ban is the same row with no expiry. Both remove the member at once with `room:kicked`, which
-is what makes the removed tab forget its session and show a "you were removed" screen instead of
-rejoining in a loop. Blocked ids are refused at the door by `room:join` (`KICKED` / `BANNED`) even under
-a new nickname, and the host can lift any block early from the "Blocked" list. Blocks are stored by
-`userId`, never by `clientId`.
-
-**Shared music.** Like the timer, the video is server state: `{ videoId, status, anchorPositionMs,
-anchorAt, loop, version }`, mutated only through the pure `mediaMachine` in `shared/` and broadcast as
-`media:state`. The server keeps the validated 11-character id, never a URL — `parseYouTubeVideoId`
-accepts watch / youtu.be / embed / shorts / live / music.youtube.com / mobile links and a bare id, and
-rejects every other host, look-alike hosts, userinfo tricks, `javascript:` and playlist-only links. The
-client builds the embed through the official IFrame API with that id, so no user string ever becomes a
-frame `src`. Everyone's position is derived from the same server clock the timer uses, then corrected
-locally when it drifts more than 2 s (never while buffering, never for a live stream); a looped video
-wraps instead of ending. `media:*` is limited to 6 commands per 10 s per person. Only the id, the
-position and who set it are shared — the video's title is read from the player and stays on the device
-that played it. If a video cannot be embedded, the person who is watching sees why and nobody else's
-room breaks.
-
-**Sound on your own device.** The chime, the ten alert voices and the ambient noise are all synthesised
-with WebAudio: no audio files ship with the app and no audio event touches the socket. Ambient is a
-local loop with its own volume, optionally gated to the focus phase, and the only trace of it in the
-room is the tint on your own header icon.
-
-**Focus tracking (opt-in).** `focus:state` carries exactly one boolean: this tab is hidden. The server
-does the arithmetic — `awayCount`, `awayMs` and the active window of the running focus phase are
-measured with the server clock in `server/src/focus/focusTracker.ts`, and a session summary is emitted
-when a focus phase completes, is skipped or is reset. What leaves the device is a count and a duration;
-which tab, window or application took its place never does, and the server has no field to put it in.
-It is an accountability aid, not enforcement: switching to another monitor or another browser window on
-a visible screen reports nothing.
-
-**Identity model.** The browser generates one `clientId` (UUID v4) and keeps it in `localStorage`.
-It is a secret: it is sent only to the server on join and is never broadcast. Everything other users
-see is `userId`, the first 12 hex characters of `sha256(clientId + ":" + roomId)` — stable per room,
-so a refresh looks like the same person, and unlinkable across rooms. Nicknames are de-duplicated
-per room (`Anna`, `Anna (2)`, ...) and sanitized (control characters and zero-width/invisible
-formatting characters are stripped).
-
-**Why `shared/` exists.** `shared/` holds the Zod schemas, the event maps
-(`ClientToServerEvents` / `ServerToClientEvents`) and the pure machines. The server instantiates
-`Server<C2S, S2C, ...>` and the client `Socket<S2C, C2S>` with those same maps, so a renamed event or
-a changed payload is a compile error on both sides instead of a runtime surprise. The timer and media
-machines are pure (`start`, `pause`, `reset`, `complete`, `skip`, `applySettings`; `setVideo`, `play`,
-`pause`, `seek`, `setLoop`, `clear` — no I/O, no `setTimeout`, every function returns a new object with
-`version + 1`, or the *same* object when there is nothing to change, which is how callers know not to
-broadcast or write to disk), which is why they can be tested exhaustively in `shared` and reused by the
-server and by the client's sync engine without a second implementation.
+For full details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Getting started
 
@@ -304,36 +225,14 @@ hand in two tabs.
 
 ## Deployment
 
-**1. Database — Neon (or Supabase).** Create a free Postgres project, copy the pooled connection
-string. No setup beyond that: the schema is applied by the server container on boot
-(`prisma db push --skip-generate`), or run `npm run db:push` once yourself with
-`DATABASE_URL` pointing at it.
+Production deployment guides for Docker, Neon/Supabase Postgres, Render, and Vercel are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-**2. Server — Render (Docker).** Push the repo, then either "New +" → "Blueprint" and pick
-`render.yaml`, or create a Web Service manually with:
+Quick reference:
+- **Docker Compose (full stack)**: `docker compose up -d`
+- **Render Web Service (server)**: Docker runtime with `server/Dockerfile`, `PORT=3001`, health check at `/health`
+- **Vercel (client)**: Root directory repo root, build command `npm run build -w client`, output `client/dist`
 
-- Runtime: **Docker**, Dockerfile `server/Dockerfile`, context = repo root
-- Health check path: `/health`
-- Env vars: `STORE=prisma`, `DATABASE_URL` (Neon), `CORS_ORIGIN=https://your-app.vercel.app`,
-  `TRUST_PROXY=1`. Optional: `PRESENCE_GRACE_MS`, `MAX_MEMBERS`, `ROOM_TTL_DAYS`.
-- `PORT` is injected by Render; the server reads it.
-
-Free instances sleep after inactivity, so the first visit can take ~50 s. The client handles it: the
-connection banner shows "Reconnecting…" and Socket.io keeps retrying until the instance is awake.
-
-**3. Client — Vercel.** Import the repo with:
-
-- Root Directory: *(repo root)*
-- Build Command: `npm run build -w client`
-- Output Directory: `client/dist`
-- Env var: `VITE_SERVER_URL=https://your-server.onrender.com`
-- Add the server's URL to `CORS_ORIGIN` on Render (comma-separated for several origins).
-
-The SPA rewrite lives in `client/vercel.json`. Vercel only reads a `vercel.json` at the project root,
-so if you keep Root Directory = repo root, copy that same JSON into a root `vercel.json` (or set Root
-Directory to `client`, which uses the file where it is).
-
-`VITE_SERVER_URL` is inlined at build time — rebuild the client after changing it.
+For step-by-step setup and Nginx configurations, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Project layout
 
@@ -378,5 +277,4 @@ client/   react 19 + vite 7 + tailwind 4, zustand stores, media sync engine, i18
   once the card is actually on screen, so a listener who never opens the Music tab gets it the moment the
   room starts playing.
 - Rooms are deleted after `ROOM_TTL_DAYS` of inactivity; messages are capped at the last 100 per room.
-- No end-to-end browser tests (Vitest only). Use the two-tab recipe above to check the room page,
-  the shared music and the focus summary by hand.
+- End-to-end browser tests run with `@playwright/test` and `@axe-core/playwright` (`npm run test:e2e`). Unit and integration suites run via Vitest (`npm test`).

@@ -32,8 +32,8 @@ import type { Translate } from '../i18n';
 
 export type TimerAction = 'start' | 'pause' | 'reset' | 'skip';
 
-/** The music commands a controller may send; `set`, `seek` and `setLoop` are separate. */
-export type MediaAction = 'play' | 'pause' | 'clear';
+/** The music commands a controller may send; `seek`, `setLoop` and a request are separate. */
+export type MediaAction = 'play' | 'pause' | 'skip' | 'clear';
 
 export type JoinResult = { ok: true } | { ok: false; error: ErrorCode };
 
@@ -53,10 +53,16 @@ export interface RoomActions {
   unban: (targetUserId: string) => Promise<boolean>;
   getBlocks: () => Promise<BlockedMember[] | null>;
   /**
-   * Controller only. Resolves with null on success, or the error code — an
-   * invalid link is shown under the input rather than as a toast.
+   * Any member: ask for a song. Resolves with null once the server has taken
+   * the link, or the error code — a bad link is reported in the chat thread
+   * rather than as a toast.
    */
-  setMedia: (url: string) => Promise<ErrorCode | null>;
+  requestSong: (url: string) => Promise<ErrorCode | null>;
+  /**
+   * Fire and forget: my player finished this track, so the next request may
+   * take over. The room ignores a report about a song it is not playing.
+   */
+  trackEnded: (videoId: string) => void;
   mediaAction: (action: MediaAction) => Promise<void>;
   seekMedia: (positionMs: number) => Promise<void>;
   setMediaLoop: (loop: boolean) => Promise<void>;
@@ -333,12 +339,18 @@ export function useRoomConnection(code: string): {
       sendFocusState: (away) => {
         socketRef.current?.emit('focus:state', { away }, () => undefined);
       },
-      setMedia: async (url) => {
-        const res = await request<MediaState>((socket, cb) => socket.emit('media:set', { url }, cb));
+      requestSong: async (url) => {
+        const res = await request<MediaState>((socket, cb) =>
+          socket.emit('media:enqueue', { url }, cb),
+        );
         if (res.ok) return null;
-        // A bad link is the input's own problem; everything else is a toast.
+        // A link that is not a video is the command's own problem, and the
+        // thread says so; everything else is a toast like any other failure.
         if (res.error !== 'INVALID_MEDIA_URL') notifyError(res.error);
         return res.error;
+      },
+      trackEnded: (videoId) => {
+        socketRef.current?.emit('media:ended', { videoId }, () => undefined);
       },
       mediaAction: async (action) => {
         const event = `media:${action}` as const;

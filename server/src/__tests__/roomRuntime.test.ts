@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { KICK_COOLDOWN_MS, mediaMachine } from '@studyroom/shared';
+import { KICK_COOLDOWN_MS, MEDIA, mediaMachine } from '@studyroom/shared';
 import type { RoomSettings, TimerStateEvent } from '@studyroom/shared';
 import type { Clock, TimeoutHandle } from '../lib/clock';
 import { createMemoryStore } from '../store/memoryStore';
@@ -491,22 +491,23 @@ describe('media state carried by the room', () => {
       clientId: hostCid,
       ip: '1.2.3.4',
     });
-    const media = await ctx.runtime.setMedia(hostSock, 'https://youtu.be/dQw4w9WgXcQ');
+    const media = await ctx.runtime.enqueueMedia(hostSock, 'https://youtu.be/dQw4w9WgXcQ');
     return { ...ctx, hostSock, hostUserId: hostSnap.you.userId, media };
   }
 
-  it('the host can add a video, and only the parsed id is kept', async () => {
+  it('a request starts the room playing, and only the parsed id is kept', async () => {
     const { runtime, media, hostUserId, events } = await hostWithMusic();
     expect(media).toMatchObject({
       videoId: 'dQw4w9WgXcQ',
       status: 'playing',
       anchorPositionMs: 0,
       setBy: hostUserId,
+      queue: [],
       version: 1,
     });
     expect(events.find((e) => e.event === 'media:state')?.args[0]).toMatchObject({
       media,
-      reason: 'set',
+      reason: 'enqueue',
       by: hostUserId,
     });
 
@@ -522,13 +523,13 @@ describe('media state carried by the room', () => {
       'javascript:alert(1)',
       'dQw4w9WgXc',
     ]) {
-      await expect(runtime.setMedia(hostSock, url)).rejects.toMatchObject({
+      await expect(runtime.enqueueMedia(hostSock, url)).rejects.toMatchObject({
         code: 'INVALID_MEDIA_URL',
       });
     }
   });
 
-  it('only a controller may change the music, and a moderator is one', async () => {
+  it('any member may ask for a song, but only a controller steers the player', async () => {
     const { runtime, hostSock } = await hostWithMusic();
     const guestSock = fakeSocket('s2');
     const guestSnap = await runtime.join(guestSock, {
@@ -537,19 +538,70 @@ describe('media state carried by the room', () => {
       ip: '1.2.3.4',
     });
 
-    await expect(runtime.setMedia(guestSock, 'https://youtu.be/oHg5SJYRHA0')).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-    });
+    // The request waits its turn; it does not cut the host's track short.
+    const queued = await runtime.enqueueMedia(guestSock, 'https://youtu.be/oHg5SJYRHA0');
+    expect(queued).toMatchObject({ videoId: 'dQw4w9WgXcQ', status: 'playing' });
+    expect(queued.queue).toEqual([{ videoId: 'oHg5SJYRHA0', by: guestSnap.you.userId }]);
+
     await expect(runtime.mediaAction(guestSock, 'pause')).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(runtime.seekMedia(guestSock, 30_000)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(runtime.skipMedia(guestSock)).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
     runtime.setModerator(hostSock, guestSnap.you.userId, true);
     const paused = await runtime.mediaAction(guestSock, 'pause');
-    expect(paused).toMatchObject({ status: 'paused', version: 2 });
+    expect(paused).toMatchObject({ status: 'paused', version: 3 });
     // A pause freezes the playhead wherever the server clock left it.
     expect(paused.anchorPositionMs).toBe(0);
     expect((await runtime.mediaAction(guestSock, 'play')).status).toBe('playing');
     expect((await runtime.setMediaLoop(guestSock, true)).loop).toBe(true);
+  });
+
+  it('a song already playing or already waiting is not queued twice', async () => {
+    const { runtime, hostSock } = await hostWithMusic();
+    await runtime.enqueueMedia(hostSock, 'https://youtu.be/oHg5SJYRHA0');
+    const again = await runtime.enqueueMedia(hostSock, 'https://youtu.be/oHg5SJYRHA0');
+    expect(again.queue).toHaveLength(1);
+    expect(again.version).toBe(2);
+    // The current track counts too, so the room cannot be made to repeat itself.
+    expect((await runtime.enqueueMedia(hostSock, 'https://youtu.be/dQw4w9WgXcQ')).queue).toHaveLength(
+      1,
+    );
+  });
+
+  it('the queue holds a bounded number of requests', async () => {
+    const { runtime, hostSock, clock } = await hostWithMusic();
+    for (let i = 0; i < MEDIA.QUEUE_MAX; i += 1) {
+      // Requests are rate limited, so let the bucket refill between asks.
+      clock.advance(2_000);
+      await runtime.enqueueMedia(hostSock, `https://youtu.be/${String(i).padStart(11, 'z')}`);
+    }
+    clock.advance(2_000);
+    expect((await runtime.snapshotFor(hostCid)).media.queue).toHaveLength(MEDIA.QUEUE_MAX);
+    await expect(
+      runtime.enqueueMedia(hostSock, 'https://youtu.be/zzzzzzzzzzz'),
+    ).rejects.toMatchObject({ code: 'QUEUE_FULL' });
+  });
+
+  it('skipping hands over to the next request, and empties the room after the last', async () => {
+    const { runtime, hostSock, hostUserId } = await hostWithMusic();
+    await runtime.enqueueMedia(hostSock, 'https://youtu.be/oHg5SJYRHA0');
+    const skipped = await runtime.skipMedia(hostSock);
+    expect(skipped).toMatchObject({ videoId: 'oHg5SJYRHA0', status: 'playing', setBy: hostUserId });
+    expect(skipped.queue).toEqual([]);
+    const last = await runtime.skipMedia(hostSock);
+    expect(last).toMatchObject({ videoId: null, status: 'stopped', queue: [] });
+  });
+
+  it('a finished track advances the queue for everyone', async () => {
+    const { runtime, hostSock } = await hostWithMusic();
+    const guestSock = fakeSocket('s2');
+    await runtime.join(guestSock, { nickname: 'Budi', clientId: guestCid, ip: '1.2.3.4' });
+    await runtime.enqueueMedia(guestSock, 'https://youtu.be/oHg5SJYRHA0');
+    // A member's player, not a controller, is the one that sees the video end.
+    const next = await runtime.mediaEnded(guestSock, 'dQw4w9WgXcQ');
+    expect(next).toMatchObject({ videoId: 'oHg5SJYRHA0', status: 'playing' });
+    // The report only ever matches the track it names, so it cannot skip twice.
+    expect(await runtime.mediaEnded(guestSock, 'dQw4w9WgXcQ')).toBe(next);
   });
 
   it('a position is measured by the server clock, not reported by a client', async () => {
@@ -577,6 +629,9 @@ describe('media state carried by the room', () => {
     await expect(runtime.mediaAction(sock, 'play')).rejects.toMatchObject({ code: 'NO_MEDIA' });
     await expect(runtime.mediaAction(sock, 'pause')).rejects.toMatchObject({ code: 'NO_MEDIA' });
     await expect(runtime.seekMedia(sock, 1_000)).rejects.toMatchObject({ code: 'NO_MEDIA' });
+    await expect(runtime.skipMedia(sock)).rejects.toMatchObject({ code: 'NO_MEDIA' });
+    // A report about a track the room never had is ignored, not an error.
+    expect(await runtime.mediaEnded(sock, 'dQw4w9WgXcQ')).toMatchObject({ videoId: null });
     // Clearing nothing is a no-op rather than an error.
     expect(await runtime.mediaAction(sock, 'clear')).toMatchObject({ status: 'stopped' });
   });
@@ -599,7 +654,7 @@ describe('media state carried by the room', () => {
     const { runtime, clock } = await makeRuntime({}, 500);
     const sock = fakeSocket('s1');
     await runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
-    await runtime.setMedia(sock, 'https://youtu.be/dQw4w9WgXcQ');
+    await runtime.enqueueMedia(sock, 'https://youtu.be/dQw4w9WgXcQ');
     expect(runtime.media.status).toBe('playing');
 
     runtime.disconnectSocket(sock);
@@ -610,7 +665,7 @@ describe('media state carried by the room', () => {
 
   it('media commands are rate limited per member, not per socket', async () => {
     const { runtime, clock, hostSock } = await hostWithMusic();
-    // setMedia already spent one of the six.
+    // The request in hostWithMusic already spent one of the six.
     for (let i = 0; i < 5; i += 1) {
       await runtime.setMediaLoop(hostSock, i % 2 === 0);
     }
@@ -620,18 +675,20 @@ describe('media state carried by the room', () => {
     expect((await runtime.setMediaLoop(hostSock, true)).loop).toBe(true);
   });
 
-  it('the video and the loop choice are remembered, the playhead is not', async () => {
+  it('the song, the loop choice and the waiting requests are remembered, the playhead is not', async () => {
     const ctx = await makeRuntime();
     const sock = fakeSocket('s1');
-    await ctx.runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
-    await ctx.runtime.setMedia(sock, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s');
+    const { you } = await ctx.runtime.join(sock, { nickname: 'Anna', clientId: hostCid, ip: '1.2.3.4' });
+    await ctx.runtime.enqueueMedia(sock, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s');
     ctx.clock.advance(20_000);
     await ctx.runtime.seekMedia(sock, 90_000);
     await ctx.runtime.setMediaLoop(sock, true);
+    await ctx.runtime.enqueueMedia(sock, 'https://youtu.be/oHg5SJYRHA0');
     await flush();
 
     const stored = await ctx.store.getByCode('ABC234');
     expect(stored).toMatchObject({ mediaVideoId: 'dQw4w9WgXcQ', mediaLoop: true });
+    expect(stored?.mediaQueue).toEqual([{ videoId: 'oHg5SJYRHA0', by: you.userId }]);
     if (!stored) throw new Error('room disappeared');
 
     const reloaded = new RoomRuntime({
@@ -648,6 +705,7 @@ describe('media state carried by the room', () => {
       loop: true,
       anchorPositionMs: 0,
       setBy: null,
+      queue: [{ videoId: 'oHg5SJYRHA0' }],
     });
   });
 });

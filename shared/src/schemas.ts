@@ -109,7 +109,7 @@ export const setMutedPayloadSchema = z
 export const memberTargetPayloadSchema = transferHostPayloadSchema;
 
 /** Raw link or bare id; the server parses it and only ever stores the id. */
-export const mediaSetPayloadSchema = z
+export const mediaEnqueuePayloadSchema = z
   .object({ url: z.string().trim().min(1).max(MEDIA.URL_MAX) })
   .strict();
 
@@ -120,6 +120,15 @@ export const mediaSeekPayloadSchema = z
   .strict();
 
 export const mediaLoopPayloadSchema = z.object({ loop: z.boolean() }).strict();
+
+/**
+ * Which track the sender's player says has finished. The id is not validated as
+ * a YouTube id: a value that is not the room's current video simply matches
+ * nothing, so the worst a malformed report can do is be ignored.
+ */
+export const mediaEndedPayloadSchema = z
+  .object({ videoId: z.string().trim().min(1).max(64) })
+  .strict();
 
 export const focusSetTrackingPayloadSchema = z.object({ enabled: z.boolean() }).strict();
 
